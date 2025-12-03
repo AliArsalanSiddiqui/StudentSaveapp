@@ -56,8 +56,7 @@ export default function StudentLogin() {
           return;
         }
 
-        // Create auth user with metadata
-        // The trigger will automatically create the user profile
+        // Create auth user
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: email.trim(),
           password: password.trim(),
@@ -84,7 +83,7 @@ export default function StudentLogin() {
 
           Alert.alert(
             'Verify Your Email',
-            'We\'ve sent a verification code to your email',
+            "We've sent a verification code to your email",
             [
               {
                 text: 'OK',
@@ -124,7 +123,7 @@ export default function StudentLogin() {
 
             Alert.alert(
               'Email Not Verified',
-              'Please verify your email. We\'ve sent you a verification code.',
+              "Please verify your email. We've sent you a verification code.",
               [
                 {
                   text: 'OK',
@@ -137,10 +136,8 @@ export default function StudentLogin() {
               ]
             );
           } else {
-            // Already verified, proceed to app
-
-            router.replace('/(student)');
-            
+            // Email verified - navigation will be handled by _layout.tsx
+            console.log('Login successful, navigating...');
           }
         }
       }
@@ -282,7 +279,7 @@ export default function StudentLogin() {
             <View style={styles.infoBox}>
               <Text style={styles.infoText}>
                 {isSignUp
-                  ? '🎓 You\'ll need to verify your email with a code'
+                  ? "🎓 You'll need to verify your email with a code"
                   : '🔐 Your data is secure and encrypted'}
               </Text>
             </View>

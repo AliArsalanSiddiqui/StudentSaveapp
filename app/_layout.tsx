@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase } from '@/lib/supabase';
@@ -8,13 +8,12 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
-  const { user, setUser, loading } = useAuthStore();
-
+  const { user, setUser } = useAuthStore();
   const router = useRouter();
-  const pathname = usePathname();   // ✅ MUST be here
   const segments = useSegments();
 
   useEffect(() => {
+    // Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         fetchUserProfile(session.user.id);
@@ -23,11 +22,14 @@ export default function RootLayout() {
       }
     });
 
+    // Auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (session?.user) {
+        console.log('Auth event:', event, 'User:', session?.user?.email);
+        
+        if (event === 'SIGNED_IN' && session?.user) {
           await fetchUserProfile(session.user.id);
-        } else {
+        } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setIsReady(true);
         }
@@ -55,29 +57,29 @@ export default function RootLayout() {
     }
   };
 
-  // 🔥 FIXED AUTH ROUTING
+  // Handle navigation based on auth state
   useEffect(() => {
-    if (!isReady || loading) return;
+    if (!isReady) return;
 
-    const inAuthGroup = pathname.startsWith('/(auth)');
-    const inStudentGroup = pathname.startsWith('/(student)');
-    const inVendorGroup = pathname.startsWith('/(vendor)');
-
-    if (!user) {
-      if (!inAuthGroup) router.replace('/(auth)/welcome');
+    const inAuthGroup = segments[0] === '(auth)';
+    
+    // If no user and not in auth group, go to welcome
+    if (!user && !inAuthGroup) {
+      router.replace('/(auth)/welcome');
       return;
     }
 
-    if (user.role === 'student' && !inStudentGroup) {
-      router.replace('/(student)');
+    // If user exists, navigate to their role-specific screen
+    if (user && inAuthGroup) {
+      if (user.role === 'student') {
+        router.replace('/(student)');
+      } else if (user.role === 'vendor') {
+        router.replace('/(vendor)');
+      }
     }
+  }, [user, isReady, segments]);
 
-    if (user.role === 'vendor' && !inVendorGroup) {
-      router.replace('/(vendor)');
-    }
-  }, [user, pathname, isReady, loading]);
-
-  if (!isReady || loading) {
+  if (!isReady) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#c084fc" />

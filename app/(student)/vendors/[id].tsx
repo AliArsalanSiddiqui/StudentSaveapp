@@ -1,3 +1,6 @@
+// Move the content from app/(vendor)/[id].tsx to app/(student)/vendors/[id].tsx
+// This file should contain the vendor detail view for students
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -10,11 +13,11 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MapPin, Heart, Star, Clock, ChevronLeft, QrCode } from 'lucide-react-native';
-import { supabase } from '../../lib/supabase'
-import { Vendor } from '../../types/index'
-import { useAuthStore } from '../../store/authStore';
-import { fetchVendorById, toggleFavorite, isFavorite } from '@/lib/api';
-import QRScanner from '@/components/QRScanner';
+import { supabase } from '../../../lib/supabase';
+import { Vendor } from '../../../types/index';
+import { useAuthStore } from '../../../store/authStore';
+import { fetchVendorById, toggleFavorite, isFavorite } from '../../../lib/api';
+import QRScanner from '../../../components/QRScanner';
 
 export default function VendorDetailScreen() {
   const router = useRouter();

@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
-import { Home, QrCode, CreditCard, History, User } from 'lucide-react-native';
+import { Home, QrCode, BarChart3, User } from 'lucide-react-native';
 
-export default function StudentLayout() {
+export default function VendorLayout() {
   return (
     <Tabs
       screenOptions={{
@@ -14,7 +14,7 @@ export default function StudentLayout() {
           paddingBottom: 10,
           paddingTop: 10,
         },
-        tabBarActiveTintColor: '#c084fc',
+        tabBarActiveTintColor: '#f59e0b',
         tabBarInactiveTintColor: '#94a3b8',
       }}
     >
@@ -26,27 +26,18 @@ export default function StudentLayout() {
         }}
       />
       <Tabs.Screen
-        name="subscription"
+        name="qr-code"
         options={{
-          title: 'Plans',
-          tabBarIcon: ({ color, size }) => (
-            <CreditCard color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="scanner"
-        options={{
-          title: 'Scan',
+          title: 'QR Code',
           tabBarIcon: ({ color, size }) => <QrCode color={color} size={size} />,
         }}
       />
       <Tabs.Screen
-        name="history"
+        name="analytics"
         options={{
-          title: 'History',
+          title: 'Analytics',
           tabBarIcon: ({ color, size }) => (
-            <History color={color} size={size} />
+            <BarChart3 color={color} size={size} />
           ),
         }}
       />
@@ -55,25 +46,6 @@ export default function StudentLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
-        }}
-      />
-      {/* Hide these from tab bar */}
-      <Tabs.Screen
-        name="vendors"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="payment"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="jazzcash-payment"
-        options={{
-          href: null,
         }}
       />
     </Tabs>

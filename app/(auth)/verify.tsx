@@ -27,7 +27,8 @@ export default function VerifyScreen() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.verifyOtp({
+      // Verify the OTP token
+      const { data, error } = await supabase.auth.verifyOtp({
         email: email as string,
         token: otp,
         type: 'email',
@@ -35,8 +36,25 @@ export default function VerifyScreen() {
 
       if (error) throw error;
 
-      // Navigation will be handled by _layout.tsx based on user role
-      Alert.alert('Success!', 'Welcome to StudentSave!');
+      if (data.user) {
+        // Fetch user profile to get role
+        const { data: userProfile } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+
+        if (userProfile) {
+          // Navigate based on role
+          if (userProfile.role === 'student') {
+            router.replace('/(student)');
+          } else if (userProfile.role === 'vendor') {
+            router.replace('/(vendor)');
+          } else {
+            router.replace('/(auth)/welcome');
+          }
+        }
+      }
     } catch (error: any) {
       console.error('Verification error:', error);
       Alert.alert('Error', error.message || 'Invalid verification code');
@@ -108,7 +126,10 @@ export default function VerifyScreen() {
         </View>
 
         <TouchableOpacity
-          style={styles.verifyButton}
+          style={[
+            styles.verifyButton,
+            (loading || otp.length !== 6) && styles.verifyButtonDisabled,
+          ]}
           onPress={handleVerify}
           disabled={loading || otp.length !== 6}
         >
@@ -211,6 +232,9 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     marginBottom: 24,
+  },
+  verifyButtonDisabled: {
+    opacity: 0.5,
   },
   verifyButtonText: {
     color: '#1e1b4b',
