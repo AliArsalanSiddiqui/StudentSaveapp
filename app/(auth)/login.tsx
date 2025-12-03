@@ -58,32 +58,51 @@ export default function StudentLogin() {
 
         console.log('Starting signup process...');
 
-        // Create auth user
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: email.trim(),
-          password: password.trim(),
-          options: {
-            data: {
-              name: name.trim(),
-              university: university.trim(),
-              role: 'student',
+        // Add timeout wrapper for signup
+        const signupWithTimeout = Promise.race([
+          supabase.auth.signUp({
+            email: email.trim(),
+            password: password.trim(),
+            options: {
+              data: {
+                name: name.trim(),
+                university: university.trim(),
+                role: 'student',
+              },
+              emailRedirectTo: 'studentsave://auth/callback',
             },
-            emailRedirectTo: 'studentsave://auth/callback',
-          },
-        });
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Signup timeout - please try again')), 30000)
+          )
+        ]);
+
+        const { data: authData, error: authError } = await signupWithTimeout as any;
 
         console.log('Signup response:', { authData, authError });
 
         if (authError) {
-          // Handle specific Supabase errors
+          console.error('Auth error:', authError);
+          
+          // Handle specific errors
           if (authError.message?.includes('User already registered')) {
             Alert.alert(
               'Account Exists',
               'This email is already registered. Please sign in instead.'
             );
             setIsSignUp(false);
+          } else if (authError.message?.includes('timeout')) {
+            Alert.alert(
+              'Connection Timeout',
+              'The server is taking too long to respond. Please check your internet connection and try again.'
+            );
+          } else if (authError.status === 429) {
+            Alert.alert(
+              'Too Many Attempts',
+              'Please wait a few minutes before trying again.'
+            );
           } else {
-            throw authError;
+            Alert.alert('Error', authError.message || 'Signup failed');
           }
           setLoading(false);
           return;
@@ -94,7 +113,6 @@ export default function StudentLogin() {
 
           // Check if user needs email confirmation
           if (authData.user.identities && authData.user.identities.length === 0) {
-            // User already exists, show sign in
             Alert.alert(
               'Account Exists',
               'This email is already registered. Please sign in instead.'
@@ -104,31 +122,41 @@ export default function StudentLogin() {
             return;
           }
 
-          // Create user profile in users table
+          // Wait a moment for Supabase to process the user
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          // Create user profile - use upsert to handle existing profiles
           try {
             const { error: profileError } = await supabase
               .from('users')
-              .insert({
+              .upsert({
                 id: authData.user.id,
                 email: email.trim(),
                 name: name.trim(),
                 university: university.trim(),
                 role: 'student',
                 verified: false,
+                created_at: new Date().toISOString(),
+              }, {
+                onConflict: 'id',
+                ignoreDuplicates: false
               });
 
             if (profileError) {
               console.error('Profile creation error:', profileError);
-              // Continue anyway - profile might already exist
+              // Don't fail the signup - profile can be created later
+            } else {
+              console.log('Profile created successfully');
             }
           } catch (profileErr) {
             console.error('Profile creation failed:', profileErr);
+            // Continue anyway
           }
 
           // Show success message
           Alert.alert(
-            'Account Created! 🎉',
-            'Please check your email to verify your account. You may need to check your spam folder.',
+            'Check Your Email! 📧',
+            'We sent a verification link to your email. Please verify your email before signing in.\n\nCheck your spam folder if you don\'t see it.',
             [
               {
                 text: 'OK',
@@ -152,14 +180,24 @@ export default function StudentLogin() {
 
         console.log('Starting login process...');
 
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password: password.trim(),
-        });
+        // Add timeout wrapper for login
+        const loginWithTimeout = Promise.race([
+          supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password: password.trim(),
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Login timeout - please try again')), 30000)
+          )
+        ]);
+
+        const { data, error } = await loginWithTimeout as any;
 
         console.log('Login response:', { data, error });
 
         if (error) {
+          console.error('Login error:', error);
+          
           if (error.message?.includes('Invalid login credentials')) {
             Alert.alert('Error', 'Invalid email or password');
           } else if (error.message?.includes('Email not confirmed')) {
@@ -168,8 +206,13 @@ export default function StudentLogin() {
               'Please verify your email before logging in. Check your inbox for the verification link.',
               [{ text: 'OK' }]
             );
+          } else if (error.message?.includes('timeout')) {
+            Alert.alert(
+              'Connection Timeout',
+              'The server is taking too long to respond. Please check your internet connection and try again.'
+            );
           } else {
-            throw error;
+            Alert.alert('Error', error.message || 'Login failed');
           }
           setLoading(false);
           return;
@@ -198,16 +241,21 @@ export default function StudentLogin() {
             .single();
 
           if (profileError || !userProfile) {
+            console.log('Creating missing profile...');
             // Create profile if it doesn't exist
             const { error: createError } = await supabase
               .from('users')
-              .insert({
+              .upsert({
                 id: data.user.id,
                 email: data.user.email,
                 name: data.user.user_metadata?.name || '',
                 university: data.user.user_metadata?.university || '',
                 role: 'student',
                 verified: true,
+                created_at: new Date().toISOString(),
+              }, {
+                onConflict: 'id',
+                ignoreDuplicates: false
               });
 
             if (createError) {
@@ -237,6 +285,28 @@ export default function StudentLogin() {
       Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!email.trim()) {
+      Alert.alert('Error', 'Please enter your email address');
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email.trim(),
+      });
+
+      if (error) {
+        Alert.alert('Error', error.message);
+      } else {
+        Alert.alert('Success', 'Verification email sent! Check your inbox.');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to resend verification email');
     }
   };
 
@@ -374,6 +444,18 @@ export default function StudentLogin() {
                     : "Don't have an account? Sign Up"}
                 </Text>
               </TouchableOpacity>
+
+              {!isSignUp && (
+                <TouchableOpacity
+                  style={styles.resendButton}
+                  onPress={handleResendVerification}
+                  disabled={loading}
+                >
+                  <Text style={styles.resendButtonText}>
+                    Didn't receive verification email? Resend
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Info */}
@@ -504,6 +586,16 @@ const styles = StyleSheet.create({
     color: '#c084fc',
     fontSize: 14,
     fontWeight: '600',
+  },
+  resendButton: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  resendButtonText: {
+    color: '#c084fc',
+    fontSize: 12,
+    textDecorationLine: 'underline',
   },
   infoBox: {
     backgroundColor: 'rgba(192, 132, 252, 0.1)',
