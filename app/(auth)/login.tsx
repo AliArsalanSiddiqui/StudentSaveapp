@@ -56,12 +56,10 @@ export default function StudentLogin() {
           return;
         }
 
-        // Create auth user with timeout
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Connection timeout')), 15000)
-        );
+        console.log('Starting signup process...');
 
-        const signUpPromise = supabase.auth.signUp({
+        // Create auth user
+        const { data: authData, error: authError } = await supabase.auth.signUp({
           email: email.trim(),
           password: password.trim(),
           options: {
@@ -70,13 +68,11 @@ export default function StudentLogin() {
               university: university.trim(),
               role: 'student',
             },
+            emailRedirectTo: 'studentsave://auth/callback',
           },
         });
 
-        const { data: authData, error: authError } = await Promise.race([
-          signUpPromise,
-          timeoutPromise,
-        ]) as any;
+        console.log('Signup response:', { authData, authError });
 
         if (authError) {
           // Handle specific Supabase errors
@@ -86,8 +82,6 @@ export default function StudentLogin() {
               'This email is already registered. Please sign in instead.'
             );
             setIsSignUp(false);
-          } else if (authError.message?.includes('timeout')) {
-            throw new Error('Connection timeout. Please check your internet connection.');
           } else {
             throw authError;
           }
@@ -96,44 +90,57 @@ export default function StudentLogin() {
         }
 
         if (authData.user) {
-          // Send OTP for verification
-          try {
-            const { error: otpError } = await supabase.auth.signInWithOtp({
-              email: email.trim(),
-            });
+          console.log('User created:', authData.user.id);
 
-            if (otpError && !otpError.message.includes('request this after')) {
-              throw otpError;
-            }
-
+          // Check if user needs email confirmation
+          if (authData.user.identities && authData.user.identities.length === 0) {
+            // User already exists, show sign in
             Alert.alert(
-              'Verify Your Email',
-              "We've sent a verification code to your email",
-              [
-                {
-                  text: 'OK',
-                  onPress: () =>
-                    router.push({
-                      pathname: '/(auth)/verify',
-                      params: { email: email.trim() },
-                    }),
-                },
-              ]
+              'Account Exists',
+              'This email is already registered. Please sign in instead.'
             );
-          } catch (otpError: any) {
-            console.error('OTP error:', otpError);
-            // Even if OTP fails, account is created
-            Alert.alert(
-              'Account Created',
-              'Your account was created but we had trouble sending the verification email. Please try logging in.',
-              [
-                {
-                  text: 'OK',
-                  onPress: () => setIsSignUp(false),
-                },
-              ]
-            );
+            setIsSignUp(false);
+            setLoading(false);
+            return;
           }
+
+          // Create user profile in users table
+          try {
+            const { error: profileError } = await supabase
+              .from('users')
+              .insert({
+                id: authData.user.id,
+                email: email.trim(),
+                name: name.trim(),
+                university: university.trim(),
+                role: 'student',
+                verified: false,
+              });
+
+            if (profileError) {
+              console.error('Profile creation error:', profileError);
+              // Continue anyway - profile might already exist
+            }
+          } catch (profileErr) {
+            console.error('Profile creation failed:', profileErr);
+          }
+
+          // Show success message
+          Alert.alert(
+            'Account Created! 🎉',
+            'Please check your email to verify your account. You may need to check your spam folder.',
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  setIsSignUp(false);
+                  setPassword('');
+                  setName('');
+                  setUniversity('');
+                },
+              },
+            ]
+          );
         }
       } else {
         // Login flow
@@ -143,25 +150,24 @@ export default function StudentLogin() {
           return;
         }
 
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Connection timeout')), 15000)
-        );
+        console.log('Starting login process...');
 
-        const loginPromise = supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password: password.trim(),
         });
 
-        const { data, error } = await Promise.race([
-          loginPromise,
-          timeoutPromise,
-        ]) as any;
+        console.log('Login response:', { data, error });
 
         if (error) {
           if (error.message?.includes('Invalid login credentials')) {
             Alert.alert('Error', 'Invalid email or password');
-          } else if (error.message?.includes('timeout')) {
-            Alert.alert('Error', 'Connection timeout. Please check your internet connection.');
+          } else if (error.message?.includes('Email not confirmed')) {
+            Alert.alert(
+              'Email Not Verified',
+              'Please verify your email before logging in. Check your inbox for the verification link.',
+              [{ text: 'OK' }]
+            );
           } else {
             throw error;
           }
@@ -170,42 +176,47 @@ export default function StudentLogin() {
         }
 
         if (data.user) {
-          // Check if email is verified
+          console.log('Login successful:', data.user.id);
+          
+          // Check if email is confirmed
           if (!data.user.email_confirmed_at) {
-            // Send OTP for verification
-            try {
-              const { error: otpError } = await supabase.auth.signInWithOtp({
-                email: email.trim(),
+            Alert.alert(
+              'Email Not Verified',
+              'Please verify your email before logging in. Check your inbox for the verification link.',
+              [{ text: 'OK' }]
+            );
+            await supabase.auth.signOut();
+            setLoading(false);
+            return;
+          }
+
+          // Ensure user profile exists
+          const { data: userProfile, error: profileError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
+
+          if (profileError || !userProfile) {
+            // Create profile if it doesn't exist
+            const { error: createError } = await supabase
+              .from('users')
+              .insert({
+                id: data.user.id,
+                email: data.user.email,
+                name: data.user.user_metadata?.name || '',
+                university: data.user.user_metadata?.university || '',
+                role: 'student',
+                verified: true,
               });
 
-              if (otpError) throw otpError;
-
-              Alert.alert(
-                'Email Not Verified',
-                "Please verify your email. We've sent you a verification code.",
-                [
-                  {
-                    text: 'OK',
-                    onPress: () =>
-                      router.push({
-                        pathname: '/(auth)/verify',
-                        params: { email: email.trim() },
-                      }),
-                  },
-                ]
-              );
-            } catch (otpError: any) {
-              console.error('OTP error:', otpError);
-              Alert.alert(
-                'Verification Required',
-                'Please verify your email before logging in.',
-                [{ text: 'OK' }]
-              );
+            if (createError) {
+              console.error('Error creating profile:', createError);
             }
-          } else {
-            // Email verified - navigation will be handled by _layout.tsx
-            console.log('Login successful, navigating...');
           }
+
+          // Navigation will be handled by _layout.tsx
+          console.log('Login complete, waiting for navigation...');
         }
       }
     } catch (error: any) {
@@ -217,6 +228,8 @@ export default function StudentLogin() {
         errorMessage = 'Connection timeout. Please check your internet connection and try again.';
       } else if (error.message?.includes('network')) {
         errorMessage = 'Network error. Please check your internet connection.';
+      } else if (error.message?.includes('fetch')) {
+        errorMessage = 'Unable to connect to server. Please check your internet connection.';
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -280,6 +293,7 @@ export default function StudentLogin() {
                       value={name}
                       onChangeText={setName}
                       autoCapitalize="words"
+                      editable={!loading}
                     />
                   </View>
 
@@ -292,6 +306,7 @@ export default function StudentLogin() {
                       value={university}
                       onChangeText={setUniversity}
                       autoCapitalize="words"
+                      editable={!loading}
                     />
                   </View>
                 </>
@@ -310,6 +325,7 @@ export default function StudentLogin() {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
+                    editable={!loading}
                   />
                 </View>
               </View>
@@ -324,11 +340,12 @@ export default function StudentLogin() {
                   onChangeText={setPassword}
                   secureTextEntry
                   autoCapitalize="none"
+                  editable={!loading}
                 />
               </View>
 
               <TouchableOpacity
-                style={styles.submitButton}
+                style={[styles.submitButton, loading && styles.submitButtonDisabled]}
                 onPress={handleAuth}
                 disabled={loading}
               >
@@ -343,7 +360,13 @@ export default function StudentLogin() {
 
               <TouchableOpacity
                 style={styles.toggleButton}
-                onPress={() => setIsSignUp(!isSignUp)}
+                onPress={() => {
+                  setIsSignUp(!isSignUp);
+                  setPassword('');
+                  setName('');
+                  setUniversity('');
+                }}
+                disabled={loading}
               >
                 <Text style={styles.toggleButtonText}>
                   {isSignUp
@@ -357,7 +380,7 @@ export default function StudentLogin() {
             <View style={styles.infoBox}>
               <Text style={styles.infoText}>
                 {isSignUp
-                  ? "🎓 You'll need to verify your email with a code"
+                  ? "🎓 You'll receive a verification email after signing up"
                   : '🔐 Your data is secure and encrypted'}
               </Text>
             </View>
@@ -464,6 +487,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 12,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
   },
   submitButtonText: {
     color: '#1e1b4b',
