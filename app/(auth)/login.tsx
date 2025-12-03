@@ -1,3 +1,4 @@
+// app/(auth)/login.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -24,70 +25,127 @@ export default function StudentLogin() {
   const [name, setName] = useState('');
   const [university, setUniversity] = useState('');
 
-  
-// ... keep all imports ...
-
-const handleAuth = async () => {
-  if (!email.trim()) {
-    Alert.alert('Error', 'Please enter your email');
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    if (isSignUp) {
-      // Validate inputs
-      if (!name.trim() || !university.trim() || !password.trim()) {
-        Alert.alert('Error', 'Please fill all fields');
-        setLoading(false);
-        return;
-      }
-
-      // Sign up - trigger will create user profile automatically
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password: password.trim(),
-        options: {
-          data: {
-            name: name.trim(),
-            university: university.trim(),
-            role: 'student',
-          },
-        },
-      });
-
-      if (error) throw error;
-
-      Alert.alert(
-        'Check Your Email',
-        'We sent you a confirmation link. Please verify your email.',
-        [{ text: 'OK', onPress: () => setIsSignUp(false) }]
-      );
-    } else {
-      // Login
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password.trim(),
-      });
-
-      if (error) throw error;
-
-      if (!data.user?.email_confirmed_at) {
-        Alert.alert('Email Not Verified', 'Please verify your email first');
-        await supabase.auth.signOut();
-      }
+  // Validate student email
+  const validateStudentEmail = (email: string): boolean => {
+    const lowerEmail = email.toLowerCase().trim();
+    
+    // Check if email contains .edu.pk
+    if (!lowerEmail.includes('.edu.pk')) {
+      return false;
     }
-  } catch (error: any) {
-    console.error('Auth error:', error);
-    Alert.alert('Error', error.message || 'Authentication failed');
-  } finally {
-    setLoading(false);
-  }
-};
+    
+    // Additional validation: must have @ before .edu.pk
+    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.edu\.pk$/;
+    return emailRegex.test(lowerEmail);
+  };
+
+  const handleAuth = async () => {
+    if (!email.trim()) {
+      Alert.alert('Error', 'Please enter your email');
+      return;
+    }
+
+    // Validate student email format
+    if (!validateStudentEmail(email)) {
+      Alert.alert(
+        'Invalid Email',
+        'Please use your university email address ending with .edu.pk\n\nExample: student@university.edu.pk'
+      );
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      if (isSignUp) {
+        // Validate inputs
+        if (!name.trim() || !university.trim() || !password.trim()) {
+          Alert.alert('Error', 'Please fill all fields');
+          setLoading(false);
+          return;
+        }
+
+        if (password.length < 6) {
+          Alert.alert('Error', 'Password must be at least 6 characters');
+          setLoading(false);
+          return;
+        }
+
+        // Sign up with email/password - this will send OTP
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password: password.trim(),
+          options: {
+            data: {
+              name: name.trim(),
+              university: university.trim(),
+              role: 'student',
+            },
+            emailRedirectTo: undefined, // Disable magic link
+          },
+        });
+
+        if (error) throw error;
+
+        // Navigate to OTP verification screen
+        router.push({
+          pathname: '/(auth)/verify',
+          params: { 
+            email: email.trim(),
+            isSignUp: 'true'
+          },
+        });
+
+        Alert.alert(
+          'Check Your Email',
+          'We sent a 6-digit verification code to your email.',
+        );
+      } else {
+        // Login with password
+        if (!password.trim()) {
+          Alert.alert('Error', 'Please enter your password');
+          setLoading(false);
+          return;
+        }
+
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: password.trim(),
+        });
+
+        if (error) throw error;
+
+        if (!data.user?.email_confirmed_at) {
+          Alert.alert(
+            'Email Not Verified',
+            'Please verify your email first. Check your inbox for the verification code.',
+            [
+              {
+                text: 'Resend Code',
+                onPress: () => handleResendVerification(),
+              },
+              { text: 'OK' }
+            ]
+          );
+          await supabase.auth.signOut();
+        }
+      }
+    } catch (error: any) {
+      console.error('Auth error:', error);
+      Alert.alert('Error', error.message || 'Authentication failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleResendVerification = async () => {
     if (!email.trim()) {
       Alert.alert('Error', 'Please enter your email address');
+      return;
+    }
+
+    if (!validateStudentEmail(email)) {
+      Alert.alert('Error', 'Please enter a valid university email (.edu.pk)');
       return;
     }
 
@@ -100,10 +158,17 @@ const handleAuth = async () => {
       if (error) {
         Alert.alert('Error', error.message);
       } else {
-        Alert.alert('Success', 'Verification email sent! Check your inbox.');
+        router.push({
+          pathname: '/(auth)/verify',
+          params: { 
+            email: email.trim(),
+            isSignUp: 'true'
+          },
+        });
+        Alert.alert('Success', 'Verification code sent! Check your inbox.');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to resend verification email');
+      Alert.alert('Error', error.message || 'Failed to resend verification code');
     }
   };
 
@@ -143,7 +208,7 @@ const handleAuth = async () => {
             </Text>
             <Text style={styles.subtitle}>
               {isSignUp
-                ? 'Sign up with your university email'
+                ? 'Sign up with your university email (.edu.pk)'
                 : 'Sign in to access exclusive student discounts'}
             </Text>
 
@@ -185,7 +250,7 @@ const handleAuth = async () => {
                   <Mail color="#c084fc" size={20} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, styles.inputWithIcon]}
-                    placeholder="student@university.edu"
+                    placeholder="student@university.edu.pk"
                     placeholderTextColor="#c084fc"
                     value={email}
                     onChangeText={setEmail}
@@ -195,13 +260,16 @@ const handleAuth = async () => {
                     editable={!loading}
                   />
                 </View>
+                <Text style={styles.helperText}>
+                  Must end with .edu.pk
+                </Text>
               </View>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Password</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Enter your password"
+                  placeholder={isSignUp ? "Create a password (min 6 characters)" : "Enter your password"}
                   placeholderTextColor="#c084fc"
                   value={password}
                   onChangeText={setPassword}
@@ -249,7 +317,7 @@ const handleAuth = async () => {
                   disabled={loading}
                 >
                   <Text style={styles.resendButtonText}>
-                    Didn't receive verification email? Resend
+                    Need verification code? Resend
                   </Text>
                 </TouchableOpacity>
               )}
@@ -259,7 +327,7 @@ const handleAuth = async () => {
             <View style={styles.infoBox}>
               <Text style={styles.infoText}>
                 {isSignUp
-                  ? "🎓 You'll receive a verification email after signing up"
+                  ? "🎓 You'll receive a 6-digit code to verify your email"
                   : '🔐 Your data is secure and encrypted'}
               </Text>
             </View>
@@ -359,6 +427,11 @@ const styles = StyleSheet.create({
   },
   inputWithIcon: {
     paddingLeft: 48,
+  },
+  helperText: {
+    color: '#c084fc',
+    fontSize: 12,
+    marginTop: 4,
   },
   submitButton: {
     backgroundColor: '#c084fc',

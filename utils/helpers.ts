@@ -252,3 +252,39 @@ export const getSubscriptionPeriodText = (months: number): string => {
   if (months === 12) return '1 year';
   return `${months} months`;
 };
+/**
+ * Validate Pakistani university email
+ */
+export const validatePakistaniUniversityEmail = (email: string): {
+  isValid: boolean;
+  error?: string;
+} => {
+  const lowerEmail = email.toLowerCase().trim();
+  
+  // Must end with .edu.pk
+  if (!lowerEmail.endsWith('.edu.pk')) {
+    return {
+      isValid: false,
+      error: 'Email must end with .edu.pk',
+    };
+  }
+  
+  // Must have @ symbol
+  if (!lowerEmail.includes('@')) {
+    return {
+      isValid: false,
+      error: 'Invalid email format',
+    };
+  }
+  
+  // Basic email format validation
+  const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.edu\.pk$/;
+  if (!emailRegex.test(lowerEmail)) {
+    return {
+      isValid: false,
+      error: 'Invalid email format',
+    };
+  }
+  
+  return { isValid: true };
+};
