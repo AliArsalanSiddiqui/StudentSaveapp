@@ -27,37 +27,65 @@ export default function VerifyScreen() {
     setLoading(true);
 
     try {
-      // Verify the OTP token
-      const { data, error } = await supabase.auth.verifyOtp({
+      // Verify the OTP token with timeout
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Verification timeout')), 15000)
+      );
+
+      const verifyPromise = supabase.auth.verifyOtp({
         email: email as string,
         token: otp,
         type: 'email',
       });
 
+      const { data, error } = await Promise.race([
+        verifyPromise,
+        timeoutPromise,
+      ]) as any;
+
       if (error) throw error;
 
       if (data.user) {
         // Fetch user profile to get role
-        const { data: userProfile } = await supabase
+        const { data: userProfile, error: profileError } = await supabase
           .from('users')
           .select('*')
           .eq('id', data.user.id)
           .single();
 
+        if (profileError) {
+          console.error('Profile fetch error:', profileError);
+          // Default to student if profile fetch fails
+          router.replace('/(student)' as any);
+          return;
+        }
+
         if (userProfile) {
-          // Navigate based on role
+          // Navigate based on role with type assertion
           if (userProfile.role === 'student') {
             router.replace('/(student)');
           } else if (userProfile.role === 'vendor') {
-            router.replace('/(vendor)');
+            router.replace('/(vendor)' as any);
           } else {
+            // Fallback to welcome if role is unknown
             router.replace('/(auth)/welcome');
           }
         }
       }
     } catch (error: any) {
       console.error('Verification error:', error);
-      Alert.alert('Error', error.message || 'Invalid verification code');
+      
+      let errorMessage = 'Invalid verification code';
+      
+      if (error.message?.includes('timeout')) {
+        errorMessage = 'Connection timeout. Please try again.';
+      } else if (error.message?.includes('expired')) {
+        errorMessage = 'Verification code expired. Please request a new one.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -65,18 +93,39 @@ export default function VerifyScreen() {
 
   const handleResend = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOtp({
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      );
+
+      const resendPromise = supabase.auth.signInWithOtp({
         email: email as string,
         options: {
           emailRedirectTo: 'studentsave://auth/callback',
         },
       });
 
+      const { error } = await Promise.race([
+        resendPromise,
+        timeoutPromise,
+      ]) as any;
+
       if (error) throw error;
 
       Alert.alert('Success', 'Verification code has been resent to your email');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to resend code');
+      console.error('Resend error:', error);
+      
+      let errorMessage = 'Failed to resend code';
+      
+      if (error.message?.includes('timeout')) {
+        errorMessage = 'Connection timeout. Please check your internet connection.';
+      } else if (error.message?.includes('rate limit')) {
+        errorMessage = 'Too many attempts. Please wait a few minutes.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Error', errorMessage);
     }
   };
 
