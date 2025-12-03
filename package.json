@@ -7,12 +7,15 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "reset": "rm -rf node_modules && rm package-lock.json && npm install"
+    "reset": "rm -rf node_modules && rm package-lock.json && npm install",
+    "clean": "rm -rf node_modules package-lock.json && npm install",
+    "prebuild": "npx expo prebuild --clean"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "1.23.1",
     "@stripe/stripe-react-native": "0.38.6",
     "@supabase/supabase-js": "^2.45.4",
+    "buffer": "^6.0.3",
     "crypto-js": "^4.2.0",
     "date-fns": "^3.6.0",
     "expo": "~52.0.11",
@@ -28,6 +31,7 @@
     "expo-status-bar": "~2.0.0",
     "lucide-react-native": "^0.453.0",
     "react": "18.3.1",
+    "react-error-boundary": "^6.0.0",
     "react-native": "0.76.9",
     "react-native-crypto-js": "^1.0.0",
     "react-native-gesture-handler": "~2.20.2",
@@ -38,6 +42,7 @@
     "react-native-svg": "15.8.0",
     "react-native-url-polyfill": "^2.0.0",
     "react-native-webview": "13.12.5",
+    "readable-stream": "^4.7.0",
     "zustand": "^4.5.5"
   },
   "devDependencies": {

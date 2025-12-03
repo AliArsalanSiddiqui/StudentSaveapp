@@ -1,10 +1,28 @@
+// app/_layout.tsx
+import '../lib/polyfills'; // Import polyfills FIRST
 import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
-import { View, ActivityIndicator, StyleSheet, Alert } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Alert, Text } from 'react-native';
+import { ErrorBoundary } from 'react-error-boundary';
+
+function ErrorFallback({ error, resetErrorBoundary }: any) {
+  return (
+    <View style={styles.errorContainer}>
+      <Text style={styles.errorTitle}>Something went wrong</Text>
+      <Text style={styles.errorText}>{error?.message || 'Unknown error'}</Text>
+      <Text 
+        style={styles.errorButton} 
+        onPress={resetErrorBoundary}
+      >
+        Try Again
+      </Text>
+    </View>
+  );
+}
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
@@ -26,10 +44,16 @@ export default function RootLayout() {
 
       const sessionPromise = supabase.auth.getSession();
 
-      const { data: { session } } = await Promise.race([
+      const { data: { session }, error: sessionError } = await Promise.race([
         sessionPromise,
         timeoutPromise,
       ]) as any;
+
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        setIsReady(true);
+        return;
+      }
 
       if (session?.user) {
         await fetchUserProfile(session.user.id);
@@ -40,40 +64,39 @@ export default function RootLayout() {
       console.error('Auth initialization error:', error);
       
       // Retry logic for network errors
-      if (retryCount < 3 && error.message?.includes('timeout')) {
+      if (retryCount < 2 && error.message?.includes('timeout')) {
         setRetryCount(retryCount + 1);
-        setTimeout(() => initializeAuth(), 2000 * (retryCount + 1));
+        setTimeout(() => initializeAuth(), 2000);
         return;
       }
 
-      // If still failing, allow app to load
-      Alert.alert(
-        'Connection Issue',
-        'Unable to connect to server. You can continue offline.',
-        [{ text: 'OK', onPress: () => setIsReady(true) }]
-      );
+      // Allow app to load even if auth fails
       setIsReady(true);
     }
 
     // Auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth event:', event);
-        
-        if (event === 'SIGNED_IN' && session?.user) {
-          try {
-            await fetchUserProfile(session.user.id);
-          } catch (error) {
-            console.error('Profile fetch error:', error);
+    try {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          console.log('Auth event:', event);
+          
+          if (event === 'SIGNED_IN' && session?.user) {
+            try {
+              await fetchUserProfile(session.user.id);
+            } catch (error) {
+              console.error('Profile fetch error:', error);
+            }
+          } else if (event === 'SIGNED_OUT') {
+            setUser(null);
+            setIsReady(true);
           }
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setIsReady(true);
         }
-      }
-    );
+      );
 
-    return () => subscription.unsubscribe();
+      return () => subscription.unsubscribe();
+    } catch (error) {
+      console.error('Auth listener error:', error);
+    }
   };
 
   const fetchUserProfile = async (userId: string) => {
@@ -88,7 +111,6 @@ export default function RootLayout() {
         setUser(data);
       } else if (error) {
         console.error('User profile error:', error);
-        // Don't throw - allow app to continue
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -114,7 +136,6 @@ export default function RootLayout() {
       if (user.role === 'student') {
         router.replace('/(student)');
       } else if (user.role === 'vendor') {
-        // Use type assertion to bypass TypeScript check
         router.replace('/(vendor)' as any);
       }
     }
@@ -124,19 +145,22 @@ export default function RootLayout() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#c084fc" />
+        <Text style={styles.loadingText}>Loading StudentSave...</Text>
       </View>
     );
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(student)" />
-        <Stack.Screen name="(vendor)" />
-      </Stack>
-    </GestureHandlerRootView>
+    <ErrorBoundary FallbackComponent={ErrorFallback}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <StatusBar style="light" />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(student)" />
+          <Stack.Screen name="(vendor)" />
+        </Stack>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
 
@@ -146,5 +170,35 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e1b4b',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    color: 'white',
+    fontSize: 16,
+    marginTop: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    backgroundColor: '#1e1b4b',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  errorTitle: {
+    color: 'white',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  errorText: {
+    color: '#c084fc',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  errorButton: {
+    color: '#c084fc',
+    fontSize: 16,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });
