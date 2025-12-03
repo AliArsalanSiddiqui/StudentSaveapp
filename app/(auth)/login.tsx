@@ -24,270 +24,67 @@ export default function StudentLogin() {
   const [name, setName] = useState('');
   const [university, setUniversity] = useState('');
 
-  const handleAuth = async () => {
-    if (!email.trim()) {
-      Alert.alert('Error', 'Please enter your email');
-      return;
-    }
+  
+// ... keep all imports ...
 
-    // Validate university email
-    if (!email.includes('.edu') && !email.includes('university')) {
+const handleAuth = async () => {
+  if (!email.trim()) {
+    Alert.alert('Error', 'Please enter your email');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    if (isSignUp) {
+      // Validate inputs
+      if (!name.trim() || !university.trim() || !password.trim()) {
+        Alert.alert('Error', 'Please fill all fields');
+        setLoading(false);
+        return;
+      }
+
+      // Sign up - trigger will create user profile automatically
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: password.trim(),
+        options: {
+          data: {
+            name: name.trim(),
+            university: university.trim(),
+            role: 'student',
+          },
+        },
+      });
+
+      if (error) throw error;
+
       Alert.alert(
-        'Invalid Email',
-        'Please use your university email address'
+        'Check Your Email',
+        'We sent you a confirmation link. Please verify your email.',
+        [{ text: 'OK', onPress: () => setIsSignUp(false) }]
       );
-      return;
-    }
+    } else {
+      // Login
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password.trim(),
+      });
 
-    setLoading(true);
+      if (error) throw error;
 
-    try {
-      if (isSignUp) {
-        // Sign up flow
-        if (!name.trim() || !university.trim() || !password.trim()) {
-          Alert.alert('Error', 'Please fill all fields');
-          setLoading(false);
-          return;
-        }
-
-        if (password.length < 6) {
-          Alert.alert('Error', 'Password must be at least 6 characters');
-          setLoading(false);
-          return;
-        }
-
-        console.log('Starting signup process...');
-
-        // Add timeout wrapper for signup
-        const signupWithTimeout = Promise.race([
-          supabase.auth.signUp({
-            email: email.trim(),
-            password: password.trim(),
-            options: {
-              data: {
-                name: name.trim(),
-                university: university.trim(),
-                role: 'student',
-              },
-              emailRedirectTo: 'studentsave://auth/callback',
-            },
-          }),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Signup timeout - please try again')), 30000)
-          )
-        ]);
-
-        const { data: authData, error: authError } = await signupWithTimeout as any;
-
-        console.log('Signup response:', { authData, authError });
-
-        if (authError) {
-          console.error('Auth error:', authError);
-          
-          // Handle specific errors
-          if (authError.message?.includes('User already registered')) {
-            Alert.alert(
-              'Account Exists',
-              'This email is already registered. Please sign in instead.'
-            );
-            setIsSignUp(false);
-          } else if (authError.message?.includes('timeout')) {
-            Alert.alert(
-              'Connection Timeout',
-              'The server is taking too long to respond. Please check your internet connection and try again.'
-            );
-          } else if (authError.status === 429) {
-            Alert.alert(
-              'Too Many Attempts',
-              'Please wait a few minutes before trying again.'
-            );
-          } else {
-            Alert.alert('Error', authError.message || 'Signup failed');
-          }
-          setLoading(false);
-          return;
-        }
-
-        if (authData.user) {
-          console.log('User created:', authData.user.id);
-
-          // Check if user needs email confirmation
-          if (authData.user.identities && authData.user.identities.length === 0) {
-            Alert.alert(
-              'Account Exists',
-              'This email is already registered. Please sign in instead.'
-            );
-            setIsSignUp(false);
-            setLoading(false);
-            return;
-          }
-
-          // Wait a moment for Supabase to process the user
-          await new Promise(resolve => setTimeout(resolve, 1000));
-
-          // Create user profile - use upsert to handle existing profiles
-          try {
-            const { error: profileError } = await supabase
-              .from('users')
-              .upsert({
-                id: authData.user.id,
-                email: email.trim(),
-                name: name.trim(),
-                university: university.trim(),
-                role: 'student',
-                verified: false,
-                created_at: new Date().toISOString(),
-              }, {
-                onConflict: 'id',
-                ignoreDuplicates: false
-              });
-
-            if (profileError) {
-              console.error('Profile creation error:', profileError);
-              // Don't fail the signup - profile can be created later
-            } else {
-              console.log('Profile created successfully');
-            }
-          } catch (profileErr) {
-            console.error('Profile creation failed:', profileErr);
-            // Continue anyway
-          }
-
-          // Show success message
-          Alert.alert(
-            'Check Your Email! 📧',
-            'We sent a verification link to your email. Please verify your email before signing in.\n\nCheck your spam folder if you don\'t see it.',
-            [
-              {
-                text: 'OK',
-                onPress: () => {
-                  setIsSignUp(false);
-                  setPassword('');
-                  setName('');
-                  setUniversity('');
-                },
-              },
-            ]
-          );
-        }
-      } else {
-        // Login flow
-        if (!password.trim()) {
-          Alert.alert('Error', 'Please enter your password');
-          setLoading(false);
-          return;
-        }
-
-        console.log('Starting login process...');
-
-        // Add timeout wrapper for login
-        const loginWithTimeout = Promise.race([
-          supabase.auth.signInWithPassword({
-            email: email.trim(),
-            password: password.trim(),
-          }),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Login timeout - please try again')), 30000)
-          )
-        ]);
-
-        const { data, error } = await loginWithTimeout as any;
-
-        console.log('Login response:', { data, error });
-
-        if (error) {
-          console.error('Login error:', error);
-          
-          if (error.message?.includes('Invalid login credentials')) {
-            Alert.alert('Error', 'Invalid email or password');
-          } else if (error.message?.includes('Email not confirmed')) {
-            Alert.alert(
-              'Email Not Verified',
-              'Please verify your email before logging in. Check your inbox for the verification link.',
-              [{ text: 'OK' }]
-            );
-          } else if (error.message?.includes('timeout')) {
-            Alert.alert(
-              'Connection Timeout',
-              'The server is taking too long to respond. Please check your internet connection and try again.'
-            );
-          } else {
-            Alert.alert('Error', error.message || 'Login failed');
-          }
-          setLoading(false);
-          return;
-        }
-
-        if (data.user) {
-          console.log('Login successful:', data.user.id);
-          
-          // Check if email is confirmed
-          if (!data.user.email_confirmed_at) {
-            Alert.alert(
-              'Email Not Verified',
-              'Please verify your email before logging in. Check your inbox for the verification link.',
-              [{ text: 'OK' }]
-            );
-            await supabase.auth.signOut();
-            setLoading(false);
-            return;
-          }
-
-          // Ensure user profile exists
-          const { data: userProfile, error: profileError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', data.user.id)
-            .single();
-
-          if (profileError || !userProfile) {
-            console.log('Creating missing profile...');
-            // Create profile if it doesn't exist
-            const { error: createError } = await supabase
-              .from('users')
-              .upsert({
-                id: data.user.id,
-                email: data.user.email,
-                name: data.user.user_metadata?.name || '',
-                university: data.user.user_metadata?.university || '',
-                role: 'student',
-                verified: true,
-                created_at: new Date().toISOString(),
-              }, {
-                onConflict: 'id',
-                ignoreDuplicates: false
-              });
-
-            if (createError) {
-              console.error('Error creating profile:', createError);
-            }
-          }
-
-          // Navigation will be handled by _layout.tsx
-          console.log('Login complete, waiting for navigation...');
-        }
+      if (!data.user?.email_confirmed_at) {
+        Alert.alert('Email Not Verified', 'Please verify your email first');
+        await supabase.auth.signOut();
       }
-    } catch (error: any) {
-      console.error('Auth error:', error);
-      
-      let errorMessage = 'Authentication failed';
-      
-      if (error.message?.includes('timeout')) {
-        errorMessage = 'Connection timeout. Please check your internet connection and try again.';
-      } else if (error.message?.includes('network')) {
-        errorMessage = 'Network error. Please check your internet connection.';
-      } else if (error.message?.includes('fetch')) {
-        errorMessage = 'Unable to connect to server. Please check your internet connection.';
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      Alert.alert('Error', errorMessage);
-    } finally {
-      setLoading(false);
     }
-  };
-
+  } catch (error: any) {
+    console.error('Auth error:', error);
+    Alert.alert('Error', error.message || 'Authentication failed');
+  } finally {
+    setLoading(false);
+  }
+};
   const handleResendVerification = async () => {
     if (!email.trim()) {
       Alert.alert('Error', 'Please enter your email address');

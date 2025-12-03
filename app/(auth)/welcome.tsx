@@ -10,8 +10,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { supabase } from '@/lib/supabase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -58,17 +56,6 @@ export default function WelcomeScreen() {
             <View style={styles.benefit}>
               <Text style={styles.benefitEmoji}>⚡</Text>
               <Text style={styles.benefitText}>Instant Redemption</Text>
-              <TouchableOpacity
-  onPress={async () => {
-    await supabase.auth.signOut();
-    await AsyncStorage.clear();
-    Alert.alert("Cleared", "Auth data reset!");
-  }}
-  style={{ padding: 15, backgroundColor: 'red' }}
->
-  <Text style={{ color: 'white' }}>Reset Auth</Text>
-</TouchableOpacity>
-
             </View>
           </View>
         </View>
