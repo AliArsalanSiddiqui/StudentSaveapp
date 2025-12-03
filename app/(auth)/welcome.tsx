@@ -4,9 +4,9 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ImageBackground,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -14,7 +14,7 @@ export default function WelcomeScreen() {
   const router = useRouter();
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       
       <LinearGradient
@@ -35,12 +35,7 @@ export default function WelcomeScreen() {
         <View style={styles.content}>
           <View style={styles.heroSection}>
             <Text style={styles.heroEmoji}>🎓</Text>
-            <Text style={styles.title}>
-              Unlock{'\n'}
-              Exclusive{'\n'}
-              Student{'\n'}
-              Discounts
-            </Text>
+            <Text style={styles.title}>Unlock Exclusive Student Discounts</Text>
             <Text style={styles.subtitle}>
               Connect with your favorite restaurants and cafes. Enjoy verified
               discounts designed exclusively for students at your university.
@@ -81,29 +76,24 @@ export default function WelcomeScreen() {
           >
             <Text style={styles.secondaryButtonText}>I'm a Vendor</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.textButton}
-            onPress={() => router.push('/(auth)/admin-login')}
-          >
-            <Text style={styles.textButtonText}>Admin Login</Text>
-          </TouchableOpacity>
         </View>
       </LinearGradient>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#1e1b4b',
   },
   gradient: {
     flex: 1,
   },
   header: {
-    paddingTop: 60,
+    paddingTop: 20,
     paddingHorizontal: 24,
+    paddingBottom: 20,
   },
   logoContainer: {
     flexDirection: 'row',
@@ -132,34 +122,37 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
+    paddingBottom: 40,
   },
   heroSection: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 50,
   },
   heroEmoji: {
     fontSize: 64,
-    marginBottom: 20,
+    marginBottom: 24,
   },
   title: {
-    fontSize: 48,
+    fontSize: 36,
     fontWeight: 'bold',
     color: 'white',
     textAlign: 'center',
-    lineHeight: 56,
-    marginBottom: 20,
+    lineHeight: 44,
+    marginBottom: 16,
+    paddingHorizontal: 10,
   },
   subtitle: {
     fontSize: 16,
     color: '#c084fc',
     textAlign: 'center',
     lineHeight: 24,
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
   },
   benefitsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingHorizontal: 10,
+    marginTop: 20,
   },
   benefit: {
     alignItems: 'center',
@@ -177,7 +170,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 24,
-    paddingBottom: 48,
+    paddingBottom: 40,
     gap: 12,
   },
   primaryButton: {
@@ -211,14 +204,5 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
-  },
-  textButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  textButtonText: {
-    color: '#c084fc',
-    fontSize: 14,
-    fontWeight: '600',
   },
 });

@@ -18,6 +18,7 @@ import { supabase } from '../../lib/supabase';
 export default function StudentLogin() {
   const router = useRouter();
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [name, setName] = useState('');
@@ -43,57 +44,105 @@ export default function StudentLogin() {
     try {
       if (isSignUp) {
         // Sign up flow
-        if (!name.trim() || !university.trim()) {
+        if (!name.trim() || !university.trim() || !password.trim()) {
           Alert.alert('Error', 'Please fill all fields');
           setLoading(false);
           return;
         }
 
-        // Create auth user
+        if (password.length < 6) {
+          Alert.alert('Error', 'Password must be at least 6 characters');
+          setLoading(false);
+          return;
+        }
+
+        // Create auth user with metadata
+        // The trigger will automatically create the user profile
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: email.trim(),
-          password: Math.random().toString(36).slice(-8), // Temporary password
+          password: password.trim(),
           options: {
-            emailRedirectTo: 'studentsave://auth/callback',
+            data: {
+              name: name.trim(),
+              university: university.trim(),
+              role: 'student',
+            },
           },
         });
 
         if (authError) throw authError;
 
         if (authData.user) {
-          // Create user profile
-          const { error: profileError } = await supabase.from('users').insert({
-            id: authData.user.id,
+          // Send OTP for verification
+          const { error: otpError } = await supabase.auth.signInWithOtp({
             email: email.trim(),
-            name: name.trim(),
-            university: university.trim(),
-            role: 'student',
-            verified: false,
           });
 
-          if (profileError) throw profileError;
+          if (otpError && !otpError.message.includes('request this after')) {
+            throw otpError;
+          }
 
           Alert.alert(
-            'Success!',
-            'Please check your email to verify your account',
-            [{ text: 'OK', onPress: () => setIsSignUp(false) }]
+            'Verify Your Email',
+            'We\'ve sent a verification code to your email',
+            [
+              {
+                text: 'OK',
+                onPress: () =>
+                  router.push({
+                    pathname: '/(auth)/verify',
+                    params: { email: email.trim() },
+                  }),
+              },
+            ]
           );
         }
       } else {
         // Login flow
-        const { error } = await supabase.auth.signInWithOtp({
+        if (!password.trim()) {
+          Alert.alert('Error', 'Please enter your password');
+          setLoading(false);
+          return;
+        }
+
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
-          options: {
-            emailRedirectTo: 'studentsave://auth/callback',
-          },
+          password: password.trim(),
         });
 
         if (error) throw error;
 
-        router.push({
-          pathname: '/(auth)/verify',
-          params: { email: email.trim() },
-        });
+        if (data.user) {
+          // Check if email is verified
+          if (!data.user.email_confirmed_at) {
+            // Send OTP for verification
+            const { error: otpError } = await supabase.auth.signInWithOtp({
+              email: email.trim(),
+            });
+
+            if (otpError) throw otpError;
+
+            Alert.alert(
+              'Email Not Verified',
+              'Please verify your email. We\'ve sent you a verification code.',
+              [
+                {
+                  text: 'OK',
+                  onPress: () =>
+                    router.push({
+                      pathname: '/(auth)/verify',
+                      params: { email: email.trim() },
+                    }),
+                },
+              ]
+            );
+          } else {
+            // Already verified, proceed to app
+
+            router.replace('/(student)');
+            
+          }
+        }
       }
     } catch (error: any) {
       console.error('Auth error:', error);
@@ -135,7 +184,7 @@ export default function StudentLogin() {
             </View>
 
             <Text style={styles.title}>
-              {isSignUp ? 'Create Account' : 'Student Login'}
+              {isSignUp ? 'Create Account' : 'Welcome Back'}
             </Text>
             <Text style={styles.subtitle}>
               {isSignUp
@@ -190,6 +239,19 @@ export default function StudentLogin() {
                 </View>
               </View>
 
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Password</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your password"
+                  placeholderTextColor="#c084fc"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  autoCapitalize="none"
+                />
+              </View>
+
               <TouchableOpacity
                 style={styles.submitButton}
                 onPress={handleAuth}
@@ -200,7 +262,7 @@ export default function StudentLogin() {
                     ? 'Please wait...'
                     : isSignUp
                     ? 'Create Account'
-                    : 'Continue'}
+                    : 'Sign In'}
                 </Text>
               </TouchableOpacity>
 
@@ -219,7 +281,9 @@ export default function StudentLogin() {
             {/* Info */}
             <View style={styles.infoBox}>
               <Text style={styles.infoText}>
-                🎓 We'll send a verification code to your email
+                {isSignUp
+                  ? '🎓 You\'ll need to verify your email with a code'
+                  : '🔐 Your data is secure and encrypted'}
               </Text>
             </View>
           </View>

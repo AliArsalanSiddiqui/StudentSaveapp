@@ -1,20 +1,20 @@
 import { useEffect, useState } from 'react';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
-import QRScanner from '@/components/QRScanner';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
   const { user, setUser, loading } = useAuthStore();
-  const segments = useSegments();
+
   const router = useRouter();
+  const pathname = usePathname();   // ✅ MUST be here
+  const segments = useSegments();
 
   useEffect(() => {
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         fetchUserProfile(session.user.id);
@@ -23,11 +23,8 @@ export default function RootLayout() {
       }
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id);
-        
         if (session?.user) {
           await fetchUserProfile(session.user.id);
         } else {
@@ -58,26 +55,27 @@ export default function RootLayout() {
     }
   };
 
-  // Handle navigation based on auth state
+  // 🔥 FIXED AUTH ROUTING
   useEffect(() => {
     if (!isReady || loading) return;
 
-    const inAuthGroup = segments[0] === '(auth)';
-    const inStudentGroup = segments[0] === '(student)';
-    const inVendorGroup = segments[0] === '(vendor)';
+    const inAuthGroup = pathname.startsWith('/(auth)');
+    const inStudentGroup = pathname.startsWith('/(student)');
+    const inVendorGroup = pathname.startsWith('/(vendor)');
 
     if (!user) {
-      // Not logged in - redirect to welcome
-      if (!inAuthGroup) {
-        router.replace('/(auth)/welcome');
-      }
-    } else {
-      // Logged in - redirect based on role
-      if (user.role === 'student' && !inStudentGroup) {
-        router.replace('/(student)');
-      }
+      if (!inAuthGroup) router.replace('/(auth)/welcome');
+      return;
     }
-  }, [user, segments, isReady, loading]);
+
+    if (user.role === 'student' && !inStudentGroup) {
+      router.replace('/(student)');
+    }
+
+    if (user.role === 'vendor' && !inVendorGroup) {
+      router.replace('/(vendor)');
+    }
+  }, [user, pathname, isReady, loading]);
 
   if (!isReady || loading) {
     return (
@@ -90,16 +88,10 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="light" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: '#1e1b4b' },
-        }}
-      >
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(student)" options={{ headerShown: false }} />
-        <Stack.Screen name="(vendor)" options={{ headerShown: false }} />
-        <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(student)" />
+        <Stack.Screen name="(vendor)" />
       </Stack>
     </GestureHandlerRootView>
   );

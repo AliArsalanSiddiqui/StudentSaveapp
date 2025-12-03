@@ -33,11 +33,11 @@ export const useAuthStore = create<AuthState>()(
 
       signOut: async () => {
         await supabase.auth.signOut();
-        set({ user: null, session: null });
+        set({ user: null, session: null, loading: false });
       },
 
       setUser: (user) => set({ user, loading: false }),
-      
+
       setSession: (session) => set({ session }),
     }),
     {
@@ -47,6 +47,13 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         session: state.session,
       }),
+
+      // 🔥 Fix infinite loading after rehydration
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.loading = false; // directly modify state on rehydrate
+          }
+        },
     }
   )
 );
