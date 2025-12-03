@@ -55,7 +55,8 @@
         {
           "photosPermission": "Allow StudentSave to access your photos to upload student ID"
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true
