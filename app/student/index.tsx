@@ -13,7 +13,7 @@ import { Search, Bell, User } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { Vendor, UserSubscription } from '../../types/index';
 import { useAuthStore } from '../../store/authStore';
-import VendorCard from '../../components/VendorCard';
+import VendorCard from '@/components/VendorCard';
 
 const { width } = Dimensions.get('window');
 const cardWidth = (width - 48) / 2;
