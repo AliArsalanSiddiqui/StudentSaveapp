@@ -7,6 +7,7 @@ export interface User {
   phone?: string;
   gender?: string;
   age?: number;
+  role: 'student' | 'vendor' | 'admin';
   verified: boolean;
   avatar_url?: string;
   created_at: string;
@@ -15,6 +16,7 @@ export interface User {
 
 export interface Vendor {
   id: string;
+  owner_id?: string;
   name: string;
   category: string;
   description?: string;

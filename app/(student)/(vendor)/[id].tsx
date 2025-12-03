@@ -10,11 +10,11 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MapPin, Heart, Star, Clock, ChevronLeft, QrCode } from 'lucide-react-native';
-import { supabase } from '../../../lib/supabase';
-import { Vendor } from '../../../types/index';
+import { supabase } from '../../../lib/supabase'
+import { Vendor } from '../../../types';
 import { useAuthStore } from '../../../store/authStore';
-import { fetchVendorById, toggleFavorite, isFavorite } from '../../../lib/api';
-import QRScanner from '../../../components/QRScanner';
+import { fetchVendorById, toggleFavorite, isFavorite } from '@/lib/api';
+import QRScanner from '@/components/QRScanner';
 
 export default function VendorDetailScreen() {
   const router = useRouter();
