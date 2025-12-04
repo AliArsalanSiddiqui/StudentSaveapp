@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Image,
 } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { CheckCircle, X, Store, Calendar } from 'lucide-react-native';
 import { format } from 'date-fns';
@@ -24,7 +25,8 @@ export default function DiscountClaimedScreen() {
   const verificationCode = `VD-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
+    <View>
       {/* Close Button */}
       <TouchableOpacity 
         style={styles.closeButton}
@@ -127,6 +129,7 @@ export default function DiscountClaimedScreen() {
         💡 This discount can only be used once today
       </Text>
     </View>
+    </ScrollView>
   );
 }
 
@@ -136,10 +139,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e1b4b',
     padding: 24,
     paddingTop: 60,
+    paddingBottom: 50
   },
   closeButton: {
     position: 'absolute',
-    top: 50,
+    top: 0,
     right: 24,
     width: 40,
     height: 40,
@@ -336,6 +340,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#c084fc',
+    marginBottom: 50
   },
   secondaryButtonText: {
     color: '#c084fc',

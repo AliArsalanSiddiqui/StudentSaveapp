@@ -9,7 +9,7 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, TrendingUp, Calendar, Store } from 'lucide-react-native';
+import { ChevronLeft, TrendingUp, Calendar, Store, Clock } from 'lucide-react-native';
 import { fetchUserTransactions, getUserStats } from '../../lib/api';
 import { Transaction } from '../../types/index';
 import { useAuthStore } from '../../store/authStore';
@@ -157,37 +157,50 @@ export default function HistoryScreen() {
                       )
                     }
                   >
-                    <View style={styles.transactionIcon}>
+                    {/* Vendor Banner Image */}
+                    <View style={styles.vendorBanner}>
                       {transaction.vendor?.logo_url?.startsWith('http') ? (
                         <Image
                           source={{ uri: transaction.vendor.logo_url }}
-                          style={styles.vendorImage}
+                          style={styles.bannerImage}
                           resizeMode="cover"
                         />
                       ) : (
-                        <Text style={styles.transactionEmoji}>
-                          {transaction.vendor?.logo_url || '🏪'}
-                        </Text>
+                        <View style={styles.bannerPlaceholder}>
+                          <Text style={styles.bannerEmoji}>
+                            {transaction.vendor?.logo_url || '🏪'}
+                          </Text>
+                        </View>
                       )}
+                      
+                      {/* Discount Badge on Banner */}
+                      <View style={styles.bannerDiscountBadge}>
+                        <Text style={styles.bannerDiscountText}>
+                          {transaction.discount_applied}
+                        </Text>
+                      </View>
                     </View>
 
-                    <View style={styles.transactionInfo}>
-                      <Text style={styles.transactionVendor}>
+                    {/* Transaction Info Below Banner */}
+                    <View style={styles.transactionDetails}>
+                      <Text style={styles.vendorName} numberOfLines={1}>
                         {transaction.vendor?.name || 'Unknown Vendor'}
                       </Text>
-                      <Text style={styles.transactionTime}>
-                        {format(new Date(transaction.redeemed_at), 'h:mm a')}
-                      </Text>
-                    </View>
-
-                    <View style={styles.transactionAmount}>
-                      <Text style={styles.discountText}>
-                        {transaction.discount_applied}
-                      </Text>
-                      {transaction.amount_saved > 0 && (
-                        <Text style={styles.savedText}>
-                          Saved ₨{transaction.amount_saved}
+                      
+                      <View style={styles.detailRow}>
+                        <Clock color="#c084fc" size={14} />
+                        <Text style={styles.detailText}>
+                          {format(new Date(transaction.redeemed_at), 'h:mm a')}
                         </Text>
+                      </View>
+
+                      {transaction.amount_saved > 0 && (
+                        <View style={styles.savedRow}>
+                          <Text style={styles.savedLabel}>Saved:</Text>
+                          <Text style={styles.savedAmount}>
+                            ₨{transaction.amount_saved}
+                          </Text>
+                        </View>
                       )}
                     </View>
                   </TouchableOpacity>
@@ -319,57 +332,80 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   transactionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  transactionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
     overflow: 'hidden',
   },
-  vendorImage: {
+  vendorBanner: {
+    width: '100%',
+    height: 200,
+    position: 'relative',
+  },
+  bannerImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 24,
   },
-  transactionEmoji: {
-    fontSize: 24,
+  bannerPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  transactionInfo: {
-    flex: 1,
+  bannerEmoji: {
+    fontSize: 80,
   },
-  transactionVendor: {
+  bannerDiscountBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: '#22c55e',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  bannerDiscountText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 18,
+    fontWeight: 'bold',
   },
-  transactionTime: {
+  transactionDetails: {
+    padding: 16,
+  },
+  vendorName: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  detailText: {
     color: '#c084fc',
     fontSize: 14,
   },
-  transactionAmount: {
-    alignItems: 'flex-end',
+  savedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
-  discountText: {
+  savedLabel: {
+    color: '#c084fc',
+    fontSize: 14,
+  },
+  savedAmount: {
     color: '#22c55e',
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 2,
-  },
-  savedText: {
-    color: '#c084fc',
-    fontSize: 12,
   },
 });

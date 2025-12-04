@@ -57,19 +57,19 @@ export default function VendorDetailScreen() {
   };
 
   const handleScanSuccess = (vendorId: string) => {
-  setShowScanner(false);
-  
-  // Navigate to discount claimed screen
-  router.push({
-    pathname: '/(student)/discount-claimed',
-    params: {
-      vendorName: vendor?.name,
-      vendorLogo: vendor?.logo_url,
-      vendorLocation: vendor?.location,
-      discount: vendor?.discount_text,
-    },
-  });
-};
+    setShowScanner(false);
+    
+    // Navigate to discount claimed screen
+    router.push({
+      pathname: '/(student)/discount-claimed',
+      params: {
+        vendorName: vendor?.name,
+        vendorLogo: vendor?.logo_url,
+        vendorLocation: vendor?.location,
+        discount: vendor?.discount_text,
+      },
+    });
+  };
 
   if (loading) {
     return (
@@ -89,42 +89,50 @@ export default function VendorDetailScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <ChevronLeft color="white" size={24} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.favoriteButton}
-          onPress={handleToggleFavorite}
-        >
-          <Heart
-            color={favorite ? '#ef4444' : 'white'}
-            size={24}
-            fill={favorite ? '#ef4444' : 'transparent'}
-          />
-        </TouchableOpacity>
-      </View>
-
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Hero Banner */}
+        <View style={styles.heroBanner}>
+          {vendor.logo_url?.startsWith('http') ? (
+            <Image
+              source={{ uri: vendor.logo_url }}
+              style={styles.bannerImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.bannerPlaceholder}>
+              <Text style={styles.bannerEmoji}>{vendor.logo_url || '🏪'}</Text>
+            </View>
+          )}
+
+          {/* Overlay Header Buttons */}
+          <View style={styles.headerOverlay}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <ChevronLeft color="white" size={24} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.favoriteButton}
+              onPress={handleToggleFavorite}
+            >
+              <Heart
+                color={favorite ? '#ef4444' : 'white'}
+                size={24}
+                fill={favorite ? '#ef4444' : 'transparent'}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Discount Badge on Banner */}
+          <View style={styles.discountBadge}>
+            <Text style={styles.discountText}>{vendor.discount_text}</Text>
+          </View>
+        </View>
+
         {/* Vendor Info Card */}
         <View style={styles.vendorCard}>
-          <View style={styles.logoContainer}>
-  {vendor.logo_url?.startsWith('http') ? (
-    <Image
-      source={{ uri: vendor.logo_url }}
-      style={styles.vendorImage}
-      resizeMode="cover"
-    />
-  ) : (
-    <Text style={styles.logo}>{vendor.logo_url || '🏪'}</Text>
-  )}
-</View>
-
           <Text style={styles.vendorName}>{vendor.name}</Text>
 
           <View style={styles.categoryBadge}>
@@ -134,16 +142,11 @@ export default function VendorDetailScreen() {
           <View style={styles.statsRow}>
             <View style={styles.stat}>
               <Star color="#fbbf24" size={20} fill="#fbbf24" />
-              <Text style={styles.statText}>{vendor.rating}</Text>
+              <Text style={styles.statText}>{vendor.rating.toFixed(1)}</Text>
               <Text style={styles.statLabel}>
                 ({vendor.total_reviews} reviews)
               </Text>
             </View>
-          </View>
-
-          {/* Discount Badge */}
-          <View style={styles.discountBadge}>
-            <Text style={styles.discountText}>{vendor.discount_text}</Text>
           </View>
         </View>
 
@@ -185,10 +188,10 @@ export default function VendorDetailScreen() {
           </View>
         )}
 
-        <View style={{ height: 120 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Redeem Button */}
+      {/* Fixed Redeem Button */}
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.redeemButton}
@@ -225,19 +228,44 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
   },
-  header: {
+  content: {
+    flex: 1,
+  },
+  heroBanner: {
+    width: '100%',
+    height: 400,
+    position: 'relative',
+  },
+  bannerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  bannerPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bannerEmoji: {
+    fontSize: 120,
+  },
+  headerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 48,
-    paddingBottom: 16,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -245,41 +273,40 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 16,
+  discountBadge: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    backgroundColor: '#22c55e',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  discountText: {
+    color: 'white',
+    fontSize: 24,
+    fontWeight: 'bold',
   },
   vendorCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 24,
     padding: 24,
+    margin: 16,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
-    marginBottom: 16,
-  },
-  logoContainer: {
-  width: 120,
-  height: 120,
-  borderRadius: 60,
-  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  justifyContent: 'center',
-  alignItems: 'center',
-  marginBottom: 16,
-  overflow: 'hidden',
-  borderWidth: 3,
-  borderColor: 'rgba(192, 132, 252, 0.3)',
-},
-vendorImage: {
-  width: '100%',
-  height: '100%',
-},
-  logo: {
-    fontSize: 48,
   },
   vendorName: {
     color: 'white',
@@ -302,7 +329,6 @@ vendorImage: {
   },
   statsRow: {
     flexDirection: 'row',
-    marginBottom: 16,
   },
   stat: {
     flexDirection: 'row',
@@ -320,21 +346,11 @@ vendorImage: {
     fontSize: 14,
     marginLeft: 4,
   },
-  discountBadge: {
-    backgroundColor: '#22c55e',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 16,
-  },
-  discountText: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
   section: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 16,
     padding: 16,
+    marginHorizontal: 16,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',

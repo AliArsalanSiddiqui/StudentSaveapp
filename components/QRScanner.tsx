@@ -4,10 +4,11 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { X } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
+import { useRouter } from 'expo-router';
 
 interface QRScannerProps {
   onClose: () => void;
-  onSuccess: (vendorId: string) => void;
+  onSuccess: (vendorId: string, vendorData: any) => void;
 }
 
 export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
@@ -15,6 +16,7 @@ export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
   const [scanned, setScanned] = useState(false);
   const [processing, setProcessing] = useState(false);
   const user = useAuthStore((state) => state.user);
+  const router = useRouter();
 
   useEffect(() => {
     if (!permission?.granted) {
@@ -105,8 +107,19 @@ export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
         return;
       }
 
-      // Success
-      onSuccess(vendor.id);
+      // Success - Close scanner and navigate to discount claimed screen
+      onClose();
+      
+      // Navigate directly to discount claimed screen
+      router.push({
+        pathname: '/(student)/discount-claimed',
+        params: {
+          vendorName: vendor.name,
+          vendorLogo: vendor.logo_url || '🏪',
+          vendorLocation: vendor.location,
+          discount: vendor.discount_text,
+        },
+      });
     } catch (error) {
       console.error('QR scanning error:', error);
       Alert.alert('Error', 'Something went wrong');
@@ -167,7 +180,7 @@ export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
             <Text style={styles.instructionText}>
               {processing
                 ? 'Processing...'
-                : 'Point camera at vendor QR code '}
+                : 'Point camera at vendor QR code'}
             </Text>
           </View>
         </View>
