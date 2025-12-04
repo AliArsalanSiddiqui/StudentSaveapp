@@ -239,6 +239,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#c084fc',
+    marginBottom: 70
   },
   exploreButtonText: {
     color: '#c084fc',
