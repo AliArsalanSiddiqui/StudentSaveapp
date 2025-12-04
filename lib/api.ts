@@ -207,7 +207,10 @@ export const fetchUserTransactions = async (
 ): Promise<Transaction[]> => {
   const { data, error } = await supabase
     .from('transactions')
-    .select('*, vendors(*)')
+    .select(`
+      *,
+      vendor:vendors(*)
+    `)
     .eq('user_id', userId)
     .order('redeemed_at', { ascending: false })
     .limit(50);

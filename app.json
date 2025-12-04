@@ -71,6 +71,12 @@
         "projectId": "75a5ca88-15e2-4e62-81ff-5da6d6d3ada6"
       }
     },
-    "owner": "studentsaves-organization"
+    "owner": "studentsaves-organization",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/75a5ca88-15e2-4e62-81ff-5da6d6d3ada6"
+    }
   }
 }

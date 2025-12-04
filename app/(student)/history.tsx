@@ -10,10 +10,11 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, TrendingUp, Calendar, Store, Clock } from 'lucide-react-native';
-import { fetchUserTransactions, getUserStats } from '../../lib/api';
+import { getUserStats } from '../../lib/api';
 import { Transaction } from '../../types/index';
 import { useAuthStore } from '../../store/authStore';
 import { format } from 'date-fns';
+import { supabase } from '../../lib/supabase';
 
 export default function HistoryScreen() {
   const router = useRouter();
@@ -34,14 +35,31 @@ export default function HistoryScreen() {
   const loadData = async () => {
     if (!user?.id) return;
 
-    const [transactionsData, statsData] = await Promise.all([
-      fetchUserTransactions(user.id),
-      getUserStats(user.id),
-    ]);
+    try {
+      // Fetch transactions with vendor details from the join
+      const { data: transactionsData, error: txError } = await supabase
+        .from('transactions')
+        .select(`
+          *,
+          vendor:vendors(*)
+        `)
+        .eq('user_id', user.id)
+        .order('redeemed_at', { ascending: false })
+        .limit(50);
 
-    setTransactions(transactionsData);
-    setStats(statsData);
-    setLoading(false);
+      if (txError) {
+        console.error('Error fetching transactions:', txError);
+      }
+
+      const statsData = await getUserStats(user.id);
+
+      setTransactions(transactionsData || []);
+      setStats(statsData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const onRefresh = async () => {
@@ -151,11 +169,18 @@ export default function HistoryScreen() {
                   <TouchableOpacity
                     key={transaction.id}
                     style={styles.transactionCard}
-                    onPress={() =>
-                      router.push(
-                        `/(student)/vendors/${transaction.vendor_id}`
-                      )
-                    }
+                    onPress={() => {
+                      // Navigate to discount claimed page with transaction details
+                      router.push({
+                        pathname: '/(student)/discount-claimed',
+                        params: {
+                          vendorName: transaction.vendor?.name || 'Unknown Vendor',
+                          vendorLogo: transaction.vendor?.logo_url || '🏪',
+                          vendorLocation: transaction.vendor?.location || 'Unknown Location',
+                          discount: transaction.discount_applied,
+                        },
+                      });
+                    }}
                   >
                     {/* Vendor Banner Image */}
                     <View style={styles.vendorBanner}>
