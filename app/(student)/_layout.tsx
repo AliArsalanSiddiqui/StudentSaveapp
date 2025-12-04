@@ -42,6 +42,12 @@ export default function StudentLayout() {
         }}
       />
       <Tabs.Screen
+        name="discount-claimed"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+      <Tabs.Screen
         name="history"
         options={{
           title: 'History',

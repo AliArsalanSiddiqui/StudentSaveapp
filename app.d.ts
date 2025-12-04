@@ -16,6 +16,7 @@ declare module 'expo-router' {
         | '/(auth)/vendor-login'
         | '/(auth)/welcome'
         | '/(student)'
+        | '/(student)/discount-claimed'
         | '/(student)/history'
         | '/(student)/jazzcash-payment'
         | '/(student)/payment'

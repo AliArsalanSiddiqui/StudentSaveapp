@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, TrendingUp, Calendar, Store } from 'lucide-react-native';
@@ -157,18 +158,25 @@ export default function HistoryScreen() {
                     }
                   >
                     <View style={styles.transactionIcon}>
-                      <Text style={styles.transactionEmoji}>
-                        {transaction.vendor?.logo_url || '🏪'}
-                      </Text>
+                      {transaction.vendor?.logo_url?.startsWith('http') ? (
+                        <Image
+                          source={{ uri: transaction.vendor.logo_url }}
+                          style={styles.vendorImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <Text style={styles.transactionEmoji}>
+                          {transaction.vendor?.logo_url || '🏪'}
+                        </Text>
+                      )}
                     </View>
 
                     <View style={styles.transactionInfo}>
-                      <Text style={styles.transactionVendor}> {transaction.vendor?.name} </Text>
+                      <Text style={styles.transactionVendor}>
+                        {transaction.vendor?.name || 'Unknown Vendor'}
+                      </Text>
                       <Text style={styles.transactionTime}>
-                        {format(
-                          new Date(transaction.redeemed_at),
-                          'h:mm a'
-                        )}
+                        {format(new Date(transaction.redeemed_at), 'h:mm a')}
                       </Text>
                     </View>
 
@@ -328,6 +336,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+  },
+  vendorImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 24,
   },
   transactionEmoji: {
     fontSize: 24,

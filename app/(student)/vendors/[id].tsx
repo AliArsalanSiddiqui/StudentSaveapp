@@ -1,6 +1,3 @@
-// Move the content from app/(vendor)/[id].tsx to app/(student)/vendors/[id].tsx
-// This file should contain the vendor detail view for students
-
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -10,10 +7,10 @@ import {
   StyleSheet,
   Alert,
   Modal,
+  Image
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MapPin, Heart, Star, Clock, ChevronLeft, QrCode } from 'lucide-react-native';
-import { supabase } from '../../../lib/supabase';
 import { Vendor } from '../../../types/index';
 import { useAuthStore } from '../../../store/authStore';
 import { fetchVendorById, toggleFavorite, isFavorite } from '../../../lib/api';
@@ -60,22 +57,19 @@ export default function VendorDetailScreen() {
   };
 
   const handleScanSuccess = (vendorId: string) => {
-    setShowScanner(false);
-    Alert.alert(
-      'Success! 🎉',
-      `Your ${vendor?.discount_text} discount has been redeemed!`,
-      [
-        {
-          text: 'View History',
-          onPress: () => router.push('/(student)/history'),
-        },
-        {
-          text: 'Done',
-          onPress: () => router.back(),
-        },
-      ]
-    );
-  };
+  setShowScanner(false);
+  
+  // Navigate to discount claimed screen
+  router.push({
+    pathname: '/(student)/discount-claimed',
+    params: {
+      vendorName: vendor?.name,
+      vendorLogo: vendor?.logo_url,
+      vendorLocation: vendor?.location,
+      discount: vendor?.discount_text,
+    },
+  });
+};
 
   if (loading) {
     return (
@@ -120,8 +114,16 @@ export default function VendorDetailScreen() {
         {/* Vendor Info Card */}
         <View style={styles.vendorCard}>
           <View style={styles.logoContainer}>
-            <Text style={styles.logo}>{vendor.logo_url || '🏪'}</Text>
-          </View>
+  {vendor.logo_url?.startsWith('http') ? (
+    <Image
+      source={{ uri: vendor.logo_url }}
+      style={styles.vendorImage}
+      resizeMode="cover"
+    />
+  ) : (
+    <Text style={styles.logo}>{vendor.logo_url || '🏪'}</Text>
+  )}
+</View>
 
           <Text style={styles.vendorName}>{vendor.name}</Text>
 
@@ -261,14 +263,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   logoContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
+  width: 120,
+  height: 120,
+  borderRadius: 60,
+  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginBottom: 16,
+  overflow: 'hidden',
+  borderWidth: 3,
+  borderColor: 'rgba(192, 132, 252, 0.3)',
+},
+vendorImage: {
+  width: '100%',
+  height: '100%',
+},
   logo: {
     fontSize: 48,
   },

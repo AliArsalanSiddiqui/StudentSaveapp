@@ -6,19 +6,37 @@
     "typeRoots": ["./node_modules/@types"]
   }
 }
+  
 */
+//{
+//  "extends": "expo/tsconfig.base",
+//  "compilerOptions": {
+//    "strict": true,
+//    "paths": {
+//      "@/*": ["./*"]
+//    }
+////  },
+ // "include": [
+ //  "**/*.ts",
+ //   "**/*.tsx",
+ //   ".expo/types/**/*.ts",
+ //   "expo-env.d.ts"
+ // ]
+//}
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "expo-router": ["./.expo/types/expo-router"]
     }
   },
   "include": [
+    "app.d.ts",            // must come BEFORE .expo
     "**/*.ts",
     "**/*.tsx",
-    ".expo/types/**/*.ts",
+    ".expo/types/**/*.ts", // generated router types
     "expo-env.d.ts"
   ]
 }
