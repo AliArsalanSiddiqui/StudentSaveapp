@@ -1,6 +1,4 @@
-// Create this file: app.d.ts in your root directory
-// This extends expo-router types without breaking imports
-
+// app.d.ts
 /// <reference types="expo-router" />
 
 import 'expo-router';
@@ -16,7 +14,7 @@ declare module 'expo-router' {
         | '/(auth)/vendor-login'
         | '/(auth)/welcome'
         | '/(student)'
-        | '/(student)/discount-claimed'
+        | '/(student)/discount-claimed'  // ✅ Add this line
         | '/(student)/history'
         | '/(student)/jazzcash-payment'
         | '/(student)/payment'
