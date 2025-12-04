@@ -14,9 +14,6 @@
       "channel": "preview",
       "android": {
         "buildType": "apk"
-      },
-      "ios": {
-        "simulator": false
       }
     },
     "production": {
@@ -24,9 +21,6 @@
       "channel": "production",
       "android": {
         "buildType": "apk"
-      },
-      "ios": {
-        "bundleIdentifier": "com.studentsave.app"
       }
     }
   },
