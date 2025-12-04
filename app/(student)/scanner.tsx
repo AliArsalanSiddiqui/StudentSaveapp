@@ -16,9 +16,19 @@ export default function ScannerScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
 
+  // Re-check subscription when screen comes into focus
   useEffect(() => {
     checkSubscription();
-  }, []);
+    
+    // Set up interval to re-check when returning to screen
+    const interval = setInterval(() => {
+      if (!showScanner) {
+        checkSubscription();
+      }
+    }, 1000); // Check every second when on this screen
+
+    return () => clearInterval(interval);
+  }, [user?.id, showScanner]);
 
   const checkSubscription = async () => {
     if (!user?.id) {
@@ -35,7 +45,11 @@ export default function ScannerScreen() {
         .gte('end_date', new Date().toISOString())
         .single();
 
-      setHasSubscription(!!data && !error);
+      const isActive = !!data && !error;
+      setHasSubscription(isActive);
+      
+      // Debug log
+      console.log('Subscription check:', { isActive, data, error });
     } catch (error) {
       console.error('Subscription check error:', error);
       setHasSubscription(false);
