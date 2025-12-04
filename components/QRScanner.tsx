@@ -167,7 +167,7 @@ export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
             <Text style={styles.instructionText}>
               {processing
                 ? 'Processing...'
-                : 'Point camera at vendor QR code'}
+                : 'Point camera at vendor QR code '}
             </Text>
           </View>
         </View>

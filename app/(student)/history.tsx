@@ -163,9 +163,7 @@ export default function HistoryScreen() {
                     </View>
 
                     <View style={styles.transactionInfo}>
-                      <Text style={styles.transactionVendor}>
-                        {transaction.vendor?.name}
-                      </Text>
+                      <Text style={styles.transactionVendor}> {transaction.vendor?.name} </Text>
                       <Text style={styles.transactionTime}>
                         {format(
                           new Date(transaction.redeemed_at),

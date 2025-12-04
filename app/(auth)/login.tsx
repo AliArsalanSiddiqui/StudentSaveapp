@@ -250,7 +250,7 @@ export default function StudentLogin() {
                   <Mail color="#c084fc" size={20} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, styles.inputWithIcon]}
-                    placeholder="student@university.edu.pk"
+                    placeholder="studentID@university.edu.pk"
                     placeholderTextColor="#c084fc"
                     value={email}
                     onChangeText={setEmail}
@@ -269,7 +269,7 @@ export default function StudentLogin() {
                 <Text style={styles.label}>Password</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder={isSignUp ? "Create a password (min 6 characters)" : "Enter your password"}
+                  placeholder={isSignUp ? "(min 6 characters)" : "Enter your password"}
                   placeholderTextColor="#c084fc"
                   value={password}
                   onChangeText={setPassword}
@@ -292,7 +292,16 @@ export default function StudentLogin() {
                     : 'Sign In'}
                 </Text>
               </TouchableOpacity>
-
+              {isSignUp && (
+                <TouchableOpacity
+                  style={styles.resendButton}
+                  onPress={handleResendVerification}
+                  disabled={loading}
+                >
+                  <Text style={styles.resendButtonText}>
+                  Need verification code? Resend </Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 style={styles.toggleButton}
                 onPress={() => {
@@ -310,17 +319,6 @@ export default function StudentLogin() {
                 </Text>
               </TouchableOpacity>
 
-              {!isSignUp && (
-                <TouchableOpacity
-                  style={styles.resendButton}
-                  onPress={handleResendVerification}
-                  disabled={loading}
-                >
-                  <Text style={styles.resendButtonText}>
-                    Need verification code? Resend
-                  </Text>
-                </TouchableOpacity>
-              )}
             </View>
 
             {/* Info */}

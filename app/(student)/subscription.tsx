@@ -1,3 +1,4 @@
+// app/(student)/subscription.tsx
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -5,14 +6,15 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Check, Crown, ChevronLeft } from 'lucide-react-native';
+import { Check, Crown, ChevronLeft, Zap } from 'lucide-react-native';
 import { fetchSubscriptionPlans, fetchUserSubscription } from '../../lib/api';
 import { SubscriptionPlan, UserSubscription } from '../../types/index';
 import { useAuthStore } from '../../store/authStore';
 import { format } from 'date-fns';
+import { supabase } from '../../lib/supabase';
+import CustomAlert, { useCustomAlert } from '../../components/CustomAlert';
 
 export default function SubscriptionScreen() {
   const router = useRouter();
@@ -21,6 +23,8 @@ export default function SubscriptionScreen() {
   const [currentSubscription, setCurrentSubscription] =
     useState<UserSubscription | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activating, setActivating] = useState(false);
+  const { alertConfig, showAlert, Alert } = useCustomAlert();
 
   useEffect(() => {
     loadData();
@@ -37,44 +41,59 @@ export default function SubscriptionScreen() {
     setLoading(false);
   };
 
-  const handleSelectPlan = (plan: SubscriptionPlan) => {
-    Alert.alert(
-      'Choose Payment Method',
-      'Select how you want to pay',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Card (Stripe)',
-          onPress: () => {
-            router.push({
-              pathname: '/(student)/payment',
-              params: {
-                planId: plan.id,
-                amount: plan.price.toString(),
-                planName: plan.name,
-              },
-            });
-          },
-        },
-        {
-          text: 'JazzCash',
-          onPress: () => {
-            router.push({
-              pathname: '/(student)/jazzcash-payment',
-              params: {
-                planId: plan.id,
-                amount: plan.price.toString(),
-                planName: plan.name,
-              },
-            });
-          },
-        },
-      ],
-      { cancelable: true }
-    );
+  // DUMMY BUTTON FUNCTION - Activates subscription for testing
+  const activateDummySubscription = async () => {
+    if (!user?.id) return;
+    
+    setActivating(true);
+
+    try {
+      // Get the monthly plan (or first available plan)
+      const monthlyPlan = plans.find(p => p.name.toLowerCase() === 'monthly') || plans[0];
+      
+      if (!monthlyPlan) {
+        showAlert({
+          type: 'error',
+          title: 'Error',
+          message: 'No subscription plans available',
+        });
+        return;
+      }
+
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setMonth(endDate.getMonth() + monthlyPlan.duration_months);
+
+      const { error } = await supabase.from('user_subscriptions').insert({
+        user_id: user.id,
+        plan_id: monthlyPlan.id,
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
+        active: true,
+        payment_method: 'test',
+        transaction_id: `TEST_${Date.now()}`,
+      });
+
+      if (error) throw error;
+
+      // Reload subscription data
+      await loadData();
+
+      showAlert({
+        type: 'success',
+        title: 'Activated! 🎉',
+        message: `${monthlyPlan.name} subscription activated for testing. You can now scan QR codes!`,
+      });
+    } catch (error: any) {
+      console.error('Activation error:', error);
+      showAlert({
+        type: 'error',
+        title: 'Error',
+        message: error.message || 'Failed to activate subscription',
+      });
+    } finally {
+      setActivating(false);
+    }
   };
 
   const getPlanBadge = (planName: string) => {
@@ -100,6 +119,8 @@ export default function SubscriptionScreen() {
 
   return (
     <View style={styles.container}>
+      <Alert />
+      
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -117,6 +138,28 @@ export default function SubscriptionScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {/* DUMMY ACTIVATION BUTTON FOR TESTING */}
+        {!currentSubscription && (
+          <View style={styles.testSection}>
+            <View style={styles.testBanner}>
+              <Zap color="#fbbf24" size={24} />
+              <Text style={styles.testTitle}>Testing Mode</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.dummyButton}
+              onPress={activateDummySubscription}
+              disabled={activating}
+            >
+              <Text style={styles.dummyButtonText}>
+                {activating ? 'Activating...' : '⚡ Activate Test Subscription'}
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.testNote}>
+              For testing purposes only. Activates monthly subscription.
+            </Text>
+          </View>
+        )}
+
         {/* Current Subscription */}
         {currentSubscription && (
           <View style={styles.currentSubCard}>
@@ -160,9 +203,7 @@ export default function SubscriptionScreen() {
                 <View style={styles.priceContainer}>
                   <Text style={styles.currency}>₨</Text>
                   <Text style={styles.price}>{plan.price}</Text>
-                  <Text style={styles.perMonth}>
-                    /month
-                  </Text>
+                  <Text style={styles.perMonth}>/month</Text>
                 </View>
 
                 {/* Features */}
@@ -175,24 +216,21 @@ export default function SubscriptionScreen() {
                   ))}
                 </View>
 
-                <TouchableOpacity
-                style={[
-                  styles.selectButton,
-                  isCurrentPlan ? styles.selectButtonActive : null,
-                ]}
-                onPress={() => !Boolean(isCurrentPlan) && handleSelectPlan(plan)}
-                disabled={Boolean(isCurrentPlan)}
+                <View
+                  style={[
+                    styles.selectButton,
+                    isCurrentPlan && styles.selectButtonActive,
+                  ]}
                 >
-
                   <Text
                     style={[
                       styles.selectButtonText,
                       isCurrentPlan && styles.selectButtonTextActive,
                     ]}
                   >
-                    {isCurrentPlan ? 'Current Plan' : 'Select Plan'}
+                    {isCurrentPlan ? 'Current Plan' : 'Coming Soon'}
                   </Text>
-                </TouchableOpacity>
+                </View>
               </View>
             );
           })}
@@ -291,6 +329,46 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+  },
+  testSection: {
+    backgroundColor: 'rgba(251, 191, 36, 0.1)',
+    borderWidth: 2,
+    borderColor: '#fbbf24',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 24,
+    alignItems: 'center',
+  },
+  testBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  testTitle: {
+    color: '#fbbf24',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  dummyButton: {
+    backgroundColor: '#fbbf24',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    marginBottom: 12,
+    width: '100%',
+    alignItems: 'center',
+  },
+  dummyButtonText: {
+    color: '#1e1b4b',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  testNote: {
+    color: '#fbbf24',
+    fontSize: 12,
+    textAlign: 'center',
+    opacity: 0.8,
   },
   currentSubCard: {
     backgroundColor: 'rgba(251, 191, 36, 0.2)',
@@ -391,10 +469,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   selectButton: {
-    backgroundColor: '#c084fc',
-    padding: 16,
+    backgroundColor: 'rgba(192, 132, 252, 0.2)',
+    paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#c084fc',
   },
   selectButtonActive: {
     backgroundColor: 'rgba(192, 132, 252, 0.2)',
@@ -402,7 +482,7 @@ const styles = StyleSheet.create({
     borderColor: '#c084fc',
   },
   selectButtonText: {
-    color: '#1e1b4b',
+    color: '#c084fc',
     fontSize: 16,
     fontWeight: 'bold',
   },

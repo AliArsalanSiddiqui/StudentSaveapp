@@ -1,5 +1,6 @@
+// components/VendorCard.tsx
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { MapPin, Star } from 'lucide-react-native';
 import { Vendor } from '../types/index';
 
@@ -9,11 +10,21 @@ interface VendorCardProps {
 }
 
 export default function VendorCard({ vendor, onPress }: VendorCardProps) {
+  const isImageUrl = vendor.logo_url?.startsWith('http');
+
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
       {/* Logo */}
       <View style={styles.logoContainer}>
-        <Text style={styles.logo}>{vendor.logo_url || '🏪'}</Text>
+        {isImageUrl ? (
+          <Image
+            source={{ uri: vendor.logo_url }}
+            style={styles.logoImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text style={styles.logo}>{vendor.logo_url || '🏪'}</Text>
+        )}
       </View>
 
       {/* Content */}
@@ -38,7 +49,7 @@ export default function VendorCard({ vendor, onPress }: VendorCardProps) {
         <View style={styles.ratingRow}>
           <Star color="#fbbf24" size={14} fill="#fbbf24" />
           <Text style={styles.ratingText}>{vendor.rating}</Text>
-          <Text style={styles.reviewCount}>({vendor.total_reviews})</Text>
+          <Text style={styles.reviewCount}>( {vendor.total_reviews} )</Text>
         </View>
       </View>
 
@@ -67,6 +78,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
+    overflow: 'hidden',
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   logo: {
     fontSize: 40,
