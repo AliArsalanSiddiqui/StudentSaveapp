@@ -5,7 +5,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   TextInput,
   Modal,
 } from 'react-native';
@@ -27,6 +26,8 @@ import {
 import { useAuthStore } from '../../store/authStore';
 import { updateUserProfile } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
+import CustomAlert from '@/components/CustomAlert';
+import { AlertButton, AlertConfig } from '@/types';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -39,6 +40,31 @@ export default function ProfileScreen() {
     age: user?.age?.toString() || '',
   });
 
+  // CustomAlert state
+  const [alertConfig, setAlertConfig] = useState<AlertConfig>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+    buttons: [{ text: 'OK', onPress: () => {}, style: 'default' }],
+  });
+
+  const showAlert = (
+    title: string,
+    message: string,
+    type: 'info' | 'success' | 'error' | 'warning' = 'info',
+    buttons?: AlertButton[]
+  ) => {
+    setAlertConfig({
+      visible: true,
+      type,
+      title,
+      message,
+      buttons:
+        buttons || [{ text: 'OK', onPress: () => setAlertConfig((prev) => ({ ...prev, visible: false })), style: 'default' }],
+    });
+  };
+
   const handleSaveProfile = async () => {
     if (!user?.id) return;
 
@@ -50,39 +76,36 @@ export default function ProfileScreen() {
     });
 
     if (success) {
-      Alert.alert('Success', 'Profile updated successfully');
+      showAlert('Success', 'Profile updated successfully', 'success');
       setShowEditModal(false);
+
       // Refresh user data
       const { data } = await supabase
         .from('users')
         .select('*')
         .eq('id', user.id)
         .single();
+
       if (data) {
         useAuthStore.getState().setUser(data);
       }
     } else {
-      Alert.alert('Error', 'Failed to update profile');
+      showAlert('Error', 'Failed to update profile', 'error');
     }
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await signOut();
-            router.replace('/(auth)/welcome');
-          },
+    showAlert('Logout', 'Are you sure you want to logout?', 'info', [
+      { text: 'Cancel', onPress: () => {}, style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut();
+          router.replace('/(auth)/welcome');
         },
-      ],
-      { cancelable: true }
-    );
+      },
+    ]);
   };
 
   const menuItems = [
@@ -94,17 +117,18 @@ export default function ProfileScreen() {
     {
       icon: Settings,
       label: 'Settings',
-      onPress: () => Alert.alert('Coming Soon', 'Settings feature coming soon'),
+      onPress: () => showAlert('Coming Soon', 'Settings feature coming soon', 'info'),
     },
     {
       icon: HelpCircle,
       label: 'Help & Support',
-      onPress: () => Alert.alert('Support', 'Email: support@studentsave.com'),
+      onPress: () => showAlert('Support', 'Email: support@studentsave.com', 'info'),
     },
     {
       icon: Shield,
       label: 'Privacy Policy',
-      onPress: () => Alert.alert('Privacy', 'View our privacy policy at studentsave.com/privacy'),
+      onPress: () =>
+        showAlert('Privacy', 'View our privacy policy at studentsave.com/privacy', 'info'),
     },
   ];
 
@@ -253,7 +277,7 @@ export default function ProfileScreen() {
                   onChangeText={(text) =>
                     setEditData({ ...editData, phone: text })
                   }
-                  placeholder="+92 300 1234567"
+                  placeholder="+92 **********"
                   placeholderTextColor="#c084fc"
                   keyboardType="phone-pad"
                 />
@@ -296,6 +320,9 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Custom Alert */}
+      <CustomAlert {...alertConfig} onClose={() => setAlertConfig((prev) => ({ ...prev, visible: false }))} />
     </View>
   );
 }
