@@ -160,10 +160,8 @@ export default function StudentHome() {
                 style={[
                   styles.categoryText,
                   selectedCategory === category && styles.categoryTextActive,
-                ]}
-              >
-                {category}
-              </Text>
+                ]}>
+                {category} </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
