@@ -6,13 +6,13 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Image
 } from 'react-native';
 import CustomAlert from '@/components/CustomAlert';
+import { AlertConfig,AlertButton } from '@/types';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, Mail } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,32 +26,51 @@ export default function StudentLogin() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [name, setName] = useState('');
   const [university, setUniversity] = useState('');
+  const [alertConfig, setAlertConfig] = useState<AlertConfig>({
+  visible: false,
+  type: 'info',
+  title: '',
+  message: '',
+  buttons: [{ text: 'OK', onPress: () => {}, style: 'default' }],
+});
+
+
+  // Show custom alert
+  const showAlert = (
+  title: string,
+  message: string,
+  type: 'info' | 'success' | 'error' | 'warning' = 'info',
+  buttons?: AlertButton[]
+) => {
+  setAlertConfig({
+    visible: true,
+    type,
+    title,
+    message,
+    buttons: buttons || [{ text: 'OK', onPress: () => {}, style: 'default' }],
+  });
+};
+
 
   // Validate student email
   const validateStudentEmail = (email: string): boolean => {
     const lowerEmail = email.toLowerCase().trim();
-    
-    // Check if email contains .edu.pk
-    if (!lowerEmail.includes('.edu.pk')) {
-      return false;
-    }
-    
-    // Additional validation: must have @ before .edu.pk
+    if (!lowerEmail.includes('.edu.pk')) return false;
     const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.edu\.pk$/;
     return emailRegex.test(lowerEmail);
   };
 
   const handleAuth = async () => {
     if (!email.trim()) {
-      Alert.alert('Error', 'Please enter your email');
+      showAlert("Error", "Please enter your email", "error");
       return;
     }
 
-    // Validate student email format
     if (!validateStudentEmail(email)) {
-      Alert.alert(
-        'Invalid Email',
-        'Please use your university email address ending with .edu.pk\n\nExample: student@university.edu.pk'
+      showAlert(
+        "Invalid Email",
+        "Please use your university email address ending with .edu.pk\n\nExample: student@university.edu.pk",
+        "error"
       );
       return;
     }
@@ -60,20 +79,18 @@ export default function StudentLogin() {
 
     try {
       if (isSignUp) {
-        // Validate inputs
         if (!name.trim() || !university.trim() || !password.trim()) {
-          Alert.alert('Error', 'Please fill all fields');
+          showAlert("Error", "Please fill all fields", "error");
           setLoading(false);
           return;
         }
 
         if (password.length < 6) {
-          Alert.alert('Error', 'Password must be at least 6 characters');
+          showAlert("Error", "Password must be at least 6 characters", "error");
           setLoading(false);
           return;
         }
 
-        // Sign up with email/password - this will send OTP
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password: password.trim(),
@@ -83,13 +100,12 @@ export default function StudentLogin() {
               university: university.trim(),
               role: 'student',
             },
-            emailRedirectTo: undefined, // Disable magic link
+            emailRedirectTo: undefined,
           },
         });
 
         if (error) throw error;
 
-        // Navigate to OTP verification screen
         router.push({
           pathname: '/(auth)/verify',
           params: { 
@@ -98,14 +114,15 @@ export default function StudentLogin() {
           },
         });
 
-        Alert.alert(
-          'Check Your Email',
-          'We sent a 6-digit verification code to your email.',
+        showAlert(
+          "Check Your Email",
+          "We sent a 6-digit verification code to your email.",
+          "success"
         );
+
       } else {
-        // Login with password
         if (!password.trim()) {
-          Alert.alert('Error', 'Please enter your password');
+          showAlert("Error", "Please enter your password", "error");
           setLoading(false);
           return;
         }
@@ -118,15 +135,13 @@ export default function StudentLogin() {
         if (error) throw error;
 
         if (!data.user?.email_confirmed_at) {
-          Alert.alert(
-            'Email Not Verified',
-            'Please verify your email first. Check your inbox for the verification code.',
+          showAlert(
+            "Email Not Verified",
+            "Please verify your email first. Check your inbox for the verification code.",
+            "warning",
             [
-              {
-                text: 'Resend Code',
-                onPress: () => handleResendVerification(),
-              },
-              { text: 'OK' }
+              { text: "Resend Code", onPress: () => handleResendVerification(), style: "default" },
+              { text: "OK", onPress: () => {}, style: "cancel" }
             ]
           );
           await supabase.auth.signOut();
@@ -134,7 +149,7 @@ export default function StudentLogin() {
       }
     } catch (error: any) {
       console.error('Auth error:', error);
-      Alert.alert('Error', error.message || 'Authentication failed');
+      showAlert("Error", error.message || "Authentication failed", "error");
     } finally {
       setLoading(false);
     }
@@ -142,12 +157,12 @@ export default function StudentLogin() {
 
   const handleResendVerification = async () => {
     if (!email.trim()) {
-      Alert.alert('Error', 'Please enter your email address');
+      showAlert("Error", "Please enter your email address", "error");
       return;
     }
 
     if (!validateStudentEmail(email)) {
-      Alert.alert('Error', 'Please enter a valid university email (.edu.pk)');
+      showAlert("Error", "Please enter a valid university email (.edu.pk)", "error");
       return;
     }
 
@@ -158,7 +173,7 @@ export default function StudentLogin() {
       });
 
       if (error) {
-        Alert.alert('Error', error.message);
+        showAlert("Error", error.message, "error");
       } else {
         router.push({
           pathname: '/(auth)/verify',
@@ -167,10 +182,10 @@ export default function StudentLogin() {
             isSignUp: 'true'
           },
         });
-        Alert.alert('Success', 'Verification code sent! Check your inbox.');
+        showAlert("Success", "Verification code sent! Check your inbox.", "success");
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to resend verification code');
+      showAlert("Error", error.message || "Failed to resend verification code", "error");
     }
   };
 
@@ -187,7 +202,6 @@ export default function StudentLogin() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.backButton}
@@ -197,7 +211,6 @@ export default function StudentLogin() {
             </TouchableOpacity>
           </View>
 
-          {/* Content */}
           <View style={styles.content}>
             <View style={styles.logoContainer}>
               <View style={styles.logo}>
@@ -214,7 +227,6 @@ export default function StudentLogin() {
                 : 'Sign in to access exclusive student discounts'}
             </Text>
 
-            {/* Form */}
             <View style={styles.form}>
               {isSignUp && (
                 <>
@@ -294,6 +306,7 @@ export default function StudentLogin() {
                     : 'Sign In'}
                 </Text>
               </TouchableOpacity>
+
               {isSignUp && (
                 <TouchableOpacity
                   style={styles.resendButton}
@@ -301,9 +314,11 @@ export default function StudentLogin() {
                   disabled={loading}
                 >
                   <Text style={styles.resendButtonText}>
-                  Need verification code? Resend </Text>
+                    Need verification code? Resend
+                  </Text>
                 </TouchableOpacity>
               )}
+
               <TouchableOpacity
                 style={styles.toggleButton}
                 onPress={() => {
@@ -320,10 +335,8 @@ export default function StudentLogin() {
                     : "Don't have an account? Sign Up"}
                 </Text>
               </TouchableOpacity>
-
             </View>
 
-            {/* Info */}
             <View style={styles.infoBox}>
               <Text style={styles.infoText}>
                 {isSignUp
@@ -334,151 +347,48 @@ export default function StudentLogin() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alertConfig.visible}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onClose={() => setAlertConfig({ ...alertConfig, visible: false })}
+      />
     </LinearGradient>
   );
 }
 
+// Styles remain unchanged
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  header: {
-    paddingTop: 48,
-    paddingHorizontal: 16,
-    marginBottom: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  logo: {
-    width: 80,
-    height: 80,
-    backgroundColor: '#ffffffff',
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-  },
-  title: {
-    color: 'white',
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    color: '#c084fc',
-    fontSize: 16,
-    marginBottom: 32,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  form: {
-    gap: 20,
-  },
-  inputContainer: {
-    gap: 8,
-  },
-  label: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  inputWrapper: {
-    position: 'relative',
-  },
-  inputIcon: {
-    position: 'absolute',
-    left: 16,
-    top: 18,
-    zIndex: 1,
-  },
-  input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 12,
-    padding: 16,
-    color: 'white',
-    fontSize: 16,
-  },
-  inputWithIcon: {
-    paddingLeft: 48,
-  },
-  helperText: {
-    color: '#c084fc',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  submitButton: {
-    backgroundColor: '#c084fc',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    color: '#1e1b4b',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  toggleButton: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  toggleButtonText: {
-    color: '#c084fc',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  resendButton: {
-    alignItems: 'center',
-    paddingVertical: 8,
-    marginTop: 4,
-  },
-  resendButtonText: {
-    color: '#c084fc',
-    fontSize: 12,
-    textDecorationLine: 'underline',
-  },
-  infoBox: {
-    backgroundColor: 'rgba(192, 132, 252, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(192, 132, 252, 0.3)',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 24,
-  },
-  infoText: {
-    color: '#c084fc',
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+  container: { flex: 1 },
+  keyboardView: { flex: 1 },
+  scrollContent: { flexGrow: 1 },
+  header: { paddingTop: 48, paddingHorizontal: 16, marginBottom: 20 },
+  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255, 255, 255, 0.1)', justifyContent: 'center', alignItems: 'center' },
+  content: { flex: 1, paddingHorizontal: 24 },
+  logoContainer: { alignItems: 'center', marginBottom: 32 },
+  logo: { width: 80, height: 80, backgroundColor: '#ffffffff', borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  logoImage: { width: 80, height: 80, borderRadius: 20 },
+  title: { color: 'white', fontSize: 32, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' },
+  subtitle: { color: '#c084fc', fontSize: 16, marginBottom: 32, textAlign: 'center', lineHeight: 24 },
+  form: { gap: 20 },
+  inputContainer: { gap: 8 },
+  label: { color: 'white', fontSize: 14, fontWeight: '600' },
+  inputWrapper: { position: 'relative' },
+  inputIcon: { position: 'absolute', left: 16, top: 18, zIndex: 1 },
+  input: { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12, padding: 16, color: 'white', fontSize: 16 },
+  inputWithIcon: { paddingLeft: 48 },
+  helperText: { color: '#c084fc', fontSize: 12, marginTop: 4 },
+  submitButton: { backgroundColor: '#c084fc', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 12 },
+  submitButtonDisabled: { opacity: 0.6 },
+  submitButtonText: { color: '#1e1b4b', fontSize: 18, fontWeight: 'bold' },
+  toggleButton: { alignItems: 'center', paddingVertical: 8 },
+  toggleButtonText: { color: '#c084fc', fontSize: 14, fontWeight: '600' },
+  resendButton: { alignItems: 'center', paddingVertical: 8, marginTop: 4 },
+  resendButtonText: { color: '#c084fc', fontSize: 12, textDecorationLine: 'underline' },
+  infoBox: { backgroundColor: 'rgba(192, 132, 252, 0.1)', borderWidth: 1, borderColor: 'rgba(192, 132, 252, 0.3)', borderRadius: 12, padding: 16, marginTop: 24 },
+  infoText: { color: '#c084fc', fontSize: 14, textAlign: 'center', lineHeight: 20 },
 });

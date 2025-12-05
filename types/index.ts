@@ -120,3 +120,16 @@ export interface PaymentIntent {
   clientSecret: string;
   paymentIntentId: string;
 }
+export interface AlertButton {
+  text: string;
+  onPress: () => void;
+  style?: 'default' | 'cancel' | 'destructive';
+}
+
+export interface AlertConfig {
+  visible: boolean;
+  type: 'success' | 'error' | 'info' | 'warning';
+  title: string;
+  message: string;
+  buttons: AlertButton[];
+}
