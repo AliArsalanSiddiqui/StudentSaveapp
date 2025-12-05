@@ -172,8 +172,7 @@ export default function SubscriptionScreen() {
             </Text>
             <Text style={styles.currentSubDate}>
               Valid until{' '}
-              {format(new Date(currentSubscription.end_date), 'MMM dd, yyyy')}
-            </Text>
+              {format(new Date(currentSubscription.end_date), 'MMM dd, yyyy')} </Text>
           </View>
         )}
 
