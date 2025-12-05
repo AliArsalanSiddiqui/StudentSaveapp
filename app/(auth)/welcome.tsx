@@ -5,7 +5,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -26,7 +27,7 @@ export default function WelcomeScreen() {
         <View style={styles.header}>
           <View style={styles.logoContainer}>
             <View style={styles.logo}>
-              <Text style={styles.logoText}>S</Text>
+              <Image source={require('../../assets/logo.png')} style={styles.logoImage}/>
             </View>
             <Text style={styles.brandName}>StudentSave</Text>
           </View>
@@ -104,15 +105,16 @@ const styles = StyleSheet.create({
   logo: {
     width: 48,
     height: 48,
-    backgroundColor: '#c084fc',
+    backgroundColor: '#ffffffff',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logoText: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
+  logoImage: {
+    resizeMode: 'contain',
+    borderRadius: 12,
+    width: 48,
+    height: 48,
   },
   brandName: {
     color: 'white',

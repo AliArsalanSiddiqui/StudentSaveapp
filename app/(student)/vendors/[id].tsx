@@ -133,19 +133,17 @@ export default function VendorDetailScreen() {
 
         {/* Vendor Info Card */}
         <View style={styles.vendorCard}>
-          <Text style={styles.vendorName}>{vendor.name}</Text>
+          <Text style={styles.vendorName}>{vendor.name} </Text>
 
           <View style={styles.categoryBadge}>
-            <Text style={styles.categoryText}>{vendor.category}</Text>
+            <Text style={styles.categoryText}>{vendor.category} </Text>
           </View>
 
           <View style={styles.statsRow}>
             <View style={styles.stat}>
               <Star color="#fbbf24" size={20} fill="#fbbf24" />
               <Text style={styles.statText}>{vendor.rating.toFixed(1)}</Text>
-              <Text style={styles.statLabel}>
-                ({vendor.total_reviews} reviews)
-              </Text>
+              <Text style={styles.statLabel}>({vendor.total_reviews} reviews) </Text>
             </View>
           </View>
         </View>
@@ -156,7 +154,7 @@ export default function VendorDetailScreen() {
             <MapPin color="#c084fc" size={20} />
             <Text style={styles.sectionTitle}>Location</Text>
           </View>
-          <Text style={styles.locationText}>{vendor.location}</Text>
+          <Text style={styles.locationText}>{vendor.location} </Text>
         </View>
 
         {/* Description */}

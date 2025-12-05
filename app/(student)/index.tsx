@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  Image
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Search, Bell, User } from 'lucide-react-native';
@@ -78,7 +79,7 @@ export default function StudentHome() {
         <View style={styles.headerTop}>
           <View style={styles.logoContainer}>
             <View style={styles.logo}>
-              <Text style={styles.logoText}>S</Text>
+              <Image source={require('../../assets/logo.png')} style={styles.logoImage}/>
             </View>
             <Text style={styles.brandName}>StudentSave</Text>
           </View>
@@ -212,16 +213,16 @@ const styles = StyleSheet.create({
   logo: {
     width: 32,
     height: 32,
-    backgroundColor: '#c084fc',
+    backgroundColor: '#ffffffff',
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
   },
-  logoText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 18,
+  logoImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
   },
   brandName: {
     color: 'white',

@@ -10,7 +10,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image
 } from 'react-native';
+import CustomAlert from '@/components/CustomAlert';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, Mail } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -199,7 +201,7 @@ export default function StudentLogin() {
           <View style={styles.content}>
             <View style={styles.logoContainer}>
               <View style={styles.logo}>
-                <Text style={styles.logoText}>S</Text>
+                <Image source={require('../../assets/logo.png')} style={styles.logoImage}/>
               </View>
             </View>
 
@@ -370,15 +372,15 @@ const styles = StyleSheet.create({
   logo: {
     width: 80,
     height: 80,
-    backgroundColor: '#c084fc',
+    backgroundColor: '#ffffffff',
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logoText: {
-    color: 'white',
-    fontSize: 40,
-    fontWeight: 'bold',
+  logoImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
   },
   title: {
     color: 'white',
