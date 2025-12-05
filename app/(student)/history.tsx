@@ -124,7 +124,7 @@ export default function HistoryScreen() {
               <TrendingUp color="#22c55e" size={24} />
             </View>
             <Text style={styles.statValue}>₨{stats.totalSaved}</Text>
-            <Text style={styles.statLabel}>Total Saved</Text>
+            <Text style={styles.statLabel}>Total Saved </Text>
           </View>
 
           <View style={styles.statCard}>
@@ -132,7 +132,7 @@ export default function HistoryScreen() {
               <Calendar color="#3b82f6" size={24} />
             </View>
             <Text style={styles.statValue}>{stats.totalTransactions}</Text>
-            <Text style={styles.statLabel}>Redemptions</Text>
+            <Text style={styles.statLabel}>Redemptions </Text>
           </View>
 
           <View style={styles.statCard}>
@@ -140,7 +140,7 @@ export default function HistoryScreen() {
               <Store color="#f59e0b" size={24} />
             </View>
             <Text style={styles.statValue}>{stats.favoriteVendors}</Text>
-            <Text style={styles.statLabel}>Favorites</Text>
+            <Text style={styles.statLabel}>Favorites </Text>
           </View>
         </View>
 
@@ -148,16 +148,14 @@ export default function HistoryScreen() {
         {transactions.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>
-              No transactions yet! 🎯
-            </Text>
+              No transactions yet! 🎯 </Text>
             <Text style={styles.emptyStateSubtext}>
-              Start redeeming discounts at your favorite vendors
-            </Text>
+              Start redeeming discounts at your favorite vendors </Text>
             <TouchableOpacity
               style={styles.exploreButton}
               onPress={() => router.push('/(student)')}
             >
-              <Text style={styles.exploreButtonText}>Explore Vendors</Text>
+              <Text style={styles.exploreButtonText}>Explore Vendors </Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -215,16 +213,14 @@ export default function HistoryScreen() {
                       <View style={styles.detailRow}>
                         <Clock color="#c084fc" size={14} />
                         <Text style={styles.detailText}>
-                          {format(new Date(transaction.redeemed_at), 'h:mm a')}
-                        </Text>
+                          {format(new Date(transaction.redeemed_at), 'h:mm a')} </Text>
                       </View>
 
                       {transaction.amount_saved > 0 && (
                         <View style={styles.savedRow}>
-                          <Text style={styles.savedLabel}>Saved:</Text>
+                          <Text style={styles.savedLabel}>Saved: </Text>
                           <Text style={styles.savedAmount}>
-                            ₨{transaction.amount_saved}
-                          </Text>
+                            ₨{transaction.amount_saved} </Text>
                         </View>
                       )}
                     </View>
@@ -366,7 +362,7 @@ const styles = StyleSheet.create({
   },
   vendorBanner: {
     width: '100%',
-    height: 200,
+    height: 300,
     position: 'relative',
   },
   bannerImage: {

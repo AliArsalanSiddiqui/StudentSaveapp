@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { X } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { useRouter } from 'expo-router';
+import CustomAlert from '@/components/CustomAlert';
+import { AlertConfig } from '@/types';
 
 interface QRScannerProps {
   onClose: () => void;
@@ -17,6 +19,35 @@ export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
   const [processing, setProcessing] = useState(false);
   const user = useAuthStore((state) => state.user);
   const router = useRouter();
+  const [alertConfig, setAlertConfig] = useState<AlertConfig>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+    buttons: [],
+  });
+
+  const showAlert = (
+    title: string,
+    message: string,
+    type: 'info' | 'success' | 'error' | 'warning' = 'info',
+    buttons?: AlertConfig['buttons']
+  ) => {
+    setAlertConfig({
+      visible: true,
+      type,
+      title,
+      message,
+      buttons:
+        buttons || [
+          {
+            text: 'OK',
+            onPress: () => setAlertConfig({ ...alertConfig, visible: false }),
+            style: 'default',
+          },
+        ],
+    });
+  };
 
   useEffect(() => {
     if (!permission?.granted) {
@@ -24,9 +55,15 @@ export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
     }
   }, []);
 
+  const resetScanner = () => {
+    setTimeout(() => {
+      setScanned(false);
+    }, 2000);
+  };
+
   const handleBarcodeScanned = async ({ data }: { data: string }) => {
     if (scanned || processing) return;
-    
+
     setScanned(true);
     setProcessing(true);
 
@@ -40,7 +77,7 @@ export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
         .single();
 
       if (vendorError || !vendor) {
-        Alert.alert('Error', 'Invalid QR code');
+        showAlert('Error', 'Invalid QR code', 'error');
         resetScanner();
         return;
       }
@@ -55,15 +92,15 @@ export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
         .single();
 
       if (subError || !subscription) {
-        Alert.alert(
+        showAlert(
           'No Active Subscription',
           'Please subscribe to redeem discounts',
+          'warning',
           [
             {
               text: 'OK',
-              onPress: () => {
-                onClose();
-              },
+              onPress: () => onClose(),
+              style: 'default',
             },
           ]
         );
@@ -83,14 +120,11 @@ export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
         .single();
 
       if (existingTransaction) {
-        Alert.alert(
-          'Already Redeemed',
-          'You have already redeemed this discount today'
-        );
+        showAlert('Already Redeemed', 'You have already redeemed this discount today', 'warning');
         resetScanner();
         return;
       }
-
+      console.log(vendor.name)
       // Create transaction
       const { error: transactionError } = await supabase
         .from('transactions')
@@ -98,41 +132,46 @@ export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
           user_id: user?.id,
           vendor_id: vendor.id,
           discount_applied: vendor.discount_text,
-          amount_saved: 0, // Calculate based on actual purchase
+          amount_saved: 0,
         });
 
       if (transactionError) {
-        Alert.alert('Error', 'Failed to process transaction');
+        showAlert('Error', 'Failed to process transaction', 'error');
         resetScanner();
         return;
       }
 
-      // Success - Close scanner and navigate to discount claimed screen
-      onClose();
-      
-      // Navigate directly to discount claimed screen
-      router.push({
-        pathname: '/(student)/discount-claimed',
-        params: {
-          vendorName: vendor.name,
-          vendorLogo: vendor.logo_url || '🏪',
-          vendorLocation: vendor.location,
-          discount: vendor.discount_text,
-        },
-      });
+      // Success - show alert before navigating
+      showAlert(
+        'Success',
+        `Discount redeemed successfully! `,
+        'success',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              onClose();
+              router.push({
+                pathname: '/(student)/discount-claimed',
+                params: {
+                  vendorName: vendor.name,
+                  vendorLogo: vendor.logo_url || '🏪',
+                  vendorLocation: vendor.location,
+                  discount: vendor.discount_text,
+                },
+              });
+            },
+            style: 'default',
+          },
+        ]
+      );
     } catch (error) {
       console.error('QR scanning error:', error);
-      Alert.alert('Error', 'Something went wrong');
+      showAlert('Error', 'Something went wrong', 'error');
       resetScanner();
     } finally {
       setProcessing(false);
     }
-  };
-
-  const resetScanner = () => {
-    setTimeout(() => {
-      setScanned(false);
-    }, 2000);
   };
 
   if (!permission) {
@@ -178,34 +217,34 @@ export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
 
           <View style={styles.instructions}>
             <Text style={styles.instructionText}>
-              {processing
-                ? 'Processing...'
-                : 'Point camera at vendor QR code'}
+              {processing ? 'Processing...' : 'Point camera at vendor QR code '}
             </Text>
           </View>
         </View>
       </CameraView>
+
+      {/* Custom Alert */}
+      <CustomAlert
+        visible={alertConfig.visible}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        buttons={alertConfig.buttons}
+        onClose={() => setAlertConfig({ ...alertConfig, visible: false })}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  camera: {
-    flex: 1,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
+  container: { flex: 1, backgroundColor: '#000' },
+  camera: { flex: 1 },
+  overlay: { flex: 1, backgroundColor: 'transparent' },
   closeButton: {
     position: 'absolute',
     top: 48,
     right: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     padding: 12,
     borderRadius: 24,
     zIndex: 10,
@@ -217,74 +256,14 @@ const styles = StyleSheet.create({
     width: '70%',
     aspectRatio: 1,
   },
-  corner: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    borderColor: '#c084fc',
-    borderWidth: 4,
-  },
-  topLeft: {
-    top: 0,
-    left: 0,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-    borderTopLeftRadius: 8,
-  },
-  topRight: {
-    top: 0,
-    right: 0,
-    borderLeftWidth: 0,
-    borderBottomWidth: 0,
-    borderTopRightRadius: 8,
-  },
-  bottomLeft: {
-    bottom: 0,
-    left: 0,
-    borderRightWidth: 0,
-    borderTopWidth: 0,
-    borderBottomLeftRadius: 8,
-  },
-  bottomRight: {
-    bottom: 0,
-    right: 0,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-    borderBottomRightRadius: 8,
-  },
-  instructions: {
-    position: 'absolute',
-    bottom: 100,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  instructionText: {
-    color: 'white',
-    fontSize: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
-  },
-  text: {
-    color: 'white',
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 100,
-    marginHorizontal: 24,
-  },
-  button: {
-    backgroundColor: '#c084fc',
-    marginHorizontal: 24,
-    marginTop: 24,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#1e1b4b',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  corner: { position: 'absolute', width: 40, height: 40, borderColor: '#c084fc', borderWidth: 4 },
+  topLeft: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 8 },
+  topRight: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 8 },
+  bottomLeft: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 8 },
+  bottomRight: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 8 },
+  instructions: { position: 'absolute', bottom: 100, left: 0, right: 0, alignItems: 'center' },
+  instructionText: { color: 'white', fontSize: 16, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 },
+  text: { color: 'white', fontSize: 16, textAlign: 'center', marginTop: 100, marginHorizontal: 24 },
+  button: { backgroundColor: '#c084fc', marginHorizontal: 24, marginTop: 24, padding: 16, borderRadius: 12, alignItems: 'center' },
+  buttonText: { color: '#1e1b4b', fontSize: 16, fontWeight: '600' },
 });

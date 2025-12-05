@@ -111,7 +111,7 @@ export default function ProfileScreen() {
   const menuItems = [
     {
       icon: Edit2,
-      label: 'Edit Profile',
+      label: 'Edit Profile ',
       onPress: () => setShowEditModal(true),
     },
     {
@@ -121,7 +121,7 @@ export default function ProfileScreen() {
     },
     {
       icon: HelpCircle,
-      label: 'Help & Support',
+      label: 'Help & Support ',
       onPress: () => showAlert('Support', 'Email: support@studentsave.com', 'info'),
     },
     {

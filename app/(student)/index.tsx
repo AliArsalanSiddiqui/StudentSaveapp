@@ -299,6 +299,7 @@ const styles = StyleSheet.create({
   },
   categoriesContent: {
     gap: 8,
+    paddingRight: 20
   },
   categoryButton: {
     paddingHorizontal: 16,
