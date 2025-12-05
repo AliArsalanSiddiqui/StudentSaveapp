@@ -12,14 +12,17 @@
       "resizeMode": "contain",
       "backgroundColor": "#1e1b4b"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.studentsave.app",
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs camera access to scan QR codes for discount redemption.",
         "NSPhotoLibraryUsageDescription": "This app needs photo library access to upload student ID verification documents.",
-        "NSMicrophoneUsageDescription": "This app needs microphone access for audio features such as QR scanning with audio or future voice-enabled functionality."
+        "NSMicrophoneUsageDescription": "This app needs microphone access for audio features such as QR scanning with audio or future voice-enabled functionality.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
