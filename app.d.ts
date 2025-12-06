@@ -15,6 +15,8 @@ declare module 'expo-router' {
         | '/(auth)/welcome'
         | '/(student)'
         | '/(student)/discount-claimed'  // ✅ Add this line
+        | '/(student)/jazzcash-payment'
+        | '/(student)/easypaisa-payment'
         | '/(student)/history'
         | '/(student)/jazzcash-payment'
         | '/(student)/payment'
@@ -27,7 +29,9 @@ declare module 'expo-router' {
         | '/(vendor)/index'
         | '/(vendor)/profile'
         | '/(vendor)/qr-code';
-      DynamicRoutes: 
+      DynamicRoutes:
+        | `/(student)/jazzcash-payment?${string}`
+        | `/(student)/easypaisa-payment?${string}`
         | `/(student)/vendors/${string}`
         | `/(auth)/verify?${string}`
         | `/(student)/payment?${string}`

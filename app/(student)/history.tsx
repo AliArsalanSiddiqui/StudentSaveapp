@@ -82,6 +82,21 @@ export default function HistoryScreen() {
     return grouped;
   };
 
+  const handleTransactionPress = (transaction: Transaction) => {
+    // Navigate to discount claimed page with transaction details
+    router.push({
+      pathname: '/(student)/discount-claimed',
+      params: {
+        vendorName: transaction.vendor?.name || 'Unknown Vendor',
+        vendorLogo: transaction.vendor?.logo_url || '🏪',
+        vendorLocation: transaction.vendor?.location || 'Unknown Location',
+        discount: transaction.discount_applied,
+        transactionId: transaction.id, // Pass transaction ID
+        transactionTime: transaction.redeemed_at, // Pass actual transaction time
+      },
+    });
+  };
+
   const groupedTransactions = groupTransactionsByDate(transactions);
 
   if (loading) {
@@ -124,7 +139,7 @@ export default function HistoryScreen() {
               <TrendingUp color="#22c55e" size={24} />
             </View>
             <Text style={styles.statValue}>₨{stats.totalSaved}</Text>
-            <Text style={styles.statLabel}>Total Saved </Text>
+            <Text style={styles.statLabel}>Total Saved</Text>
           </View>
 
           <View style={styles.statCard}>
@@ -132,7 +147,7 @@ export default function HistoryScreen() {
               <Calendar color="#3b82f6" size={24} />
             </View>
             <Text style={styles.statValue}>{stats.totalTransactions}</Text>
-            <Text style={styles.statLabel}>Redemptions </Text>
+            <Text style={styles.statLabel}>Redemptions</Text>
           </View>
 
           <View style={styles.statCard}>
@@ -140,22 +155,22 @@ export default function HistoryScreen() {
               <Store color="#f59e0b" size={24} />
             </View>
             <Text style={styles.statValue}>{stats.favoriteVendors}</Text>
-            <Text style={styles.statLabel}>Favorites </Text>
+            <Text style={styles.statLabel}>Favorites</Text>
           </View>
         </View>
 
         {/* Transactions List */}
         {transactions.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>
-              No transactions yet! 🎯 </Text>
+            <Text style={styles.emptyStateText}>No transactions yet! 🎯</Text>
             <Text style={styles.emptyStateSubtext}>
-              Start redeeming discounts at your favorite vendors </Text>
+              Start redeeming discounts at your favorite vendors
+            </Text>
             <TouchableOpacity
               style={styles.exploreButton}
               onPress={() => router.push('/(student)')}
             >
-              <Text style={styles.exploreButtonText}>Explore Vendors </Text>
+              <Text style={styles.exploreButtonText}>Explore Vendors</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -167,18 +182,8 @@ export default function HistoryScreen() {
                   <TouchableOpacity
                     key={transaction.id}
                     style={styles.transactionCard}
-                    onPress={() => {
-                      // Navigate to discount claimed page with transaction details
-                      router.push({
-                        pathname: '/(student)/discount-claimed',
-                        params: {
-                          vendorName: transaction.vendor?.name || 'Unknown Vendor',
-                          vendorLogo: transaction.vendor?.logo_url || '🏪',
-                          vendorLocation: transaction.vendor?.location || 'Unknown Location',
-                          discount: transaction.discount_applied,
-                        },
-                      });
-                    }}
+                    onPress={() => handleTransactionPress(transaction)}
+                    activeOpacity={0.7}
                   >
                     {/* Vendor Banner Image */}
                     <View style={styles.vendorBanner}>
@@ -213,16 +218,20 @@ export default function HistoryScreen() {
                       <View style={styles.detailRow}>
                         <Clock color="#c084fc" size={14} />
                         <Text style={styles.detailText}>
-                          {format(new Date(transaction.redeemed_at), 'h:mm a')} </Text>
+                          {format(new Date(transaction.redeemed_at), 'h:mm a')}
+                        </Text>
                       </View>
 
                       {transaction.amount_saved > 0 && (
                         <View style={styles.savedRow}>
-                          <Text style={styles.savedLabel}>Saved: </Text>
+                          <Text style={styles.savedLabel}>Saved:</Text>
                           <Text style={styles.savedAmount}>
-                            ₨{transaction.amount_saved} </Text>
+                            ₨{transaction.amount_saved}
+                          </Text>
                         </View>
                       )}
+                      
+                      <Text style={styles.tapToView}>Tap to view details</Text>
                     </View>
                   </TouchableOpacity>
                 ))}
@@ -419,6 +428,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: 8,
   },
   savedLabel: {
     color: '#c084fc',
@@ -428,5 +438,11 @@ const styles = StyleSheet.create({
     color: '#22c55e',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  tapToView: {
+    color: '#c084fc',
+    fontSize: 12,
+    fontStyle: 'italic',
+    opacity: 0.7,
   },
 });

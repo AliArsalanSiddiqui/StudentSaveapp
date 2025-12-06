@@ -82,6 +82,12 @@ export default function StudentLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="easypaisa-payment"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

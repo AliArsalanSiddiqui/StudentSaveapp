@@ -124,7 +124,7 @@ export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
         resetScanner();
         return;
       }
-      console.log(vendor.name)
+
       // Create transaction
       const { error: transactionError } = await supabase
         .from('transactions')
@@ -144,7 +144,7 @@ export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
       // Success - show alert before navigating
       showAlert(
         'Success',
-        `Discount redeemed successfully! `,
+        `Discount redeemed successfully!`,
         'success',
         [
           {
@@ -158,6 +158,7 @@ export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
                   vendorLogo: vendor.logo_url || '🏪',
                   vendorLocation: vendor.location,
                   discount: vendor.discount_text,
+                  vendorId: vendor.id, // Pass vendor ID
                 },
               });
             },
@@ -217,7 +218,7 @@ export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
 
           <View style={styles.instructions}>
             <Text style={styles.instructionText}>
-              {processing ? 'Processing...' : 'Point camera at vendor QR code '}
+              {processing ? 'Processing...' : 'Point camera at vendor QR code'}
             </Text>
           </View>
         </View>

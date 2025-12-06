@@ -1,13 +1,13 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { createJazzCashPayment, JAZZCASH_PAYMENT_URL } from '../../lib/jazzcash';
+import { createEasypaisaPayment, EASYPAISA_PAYMENT_URL } from '../../lib/easypaisa';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import CustomAlert, { useCustomAlert } from '../../components/CustomAlert';
 
-export default function JazzCashPayment() {
+export default function EasypaisaPayment() {
   const webViewRef = useRef<WebView>(null);
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -20,15 +20,12 @@ export default function JazzCashPayment() {
   const planName = params.planName as string;
   const months = parseInt(params.months as string);
 
-  const paymentData = createJazzCashPayment({
+  const paymentData = createEasypaisaPayment({
     amount,
     orderId: `ORDER_${Date.now()}`,
     description: `StudentSave ${planName} Subscription`,
-    customerEmail: user?.email || '',
-    customerPhone: user?.phone || '',
   });
 
-  // Create HTML form for JazzCash
   const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -51,8 +48,8 @@ export default function JazzCashPayment() {
       </style>
     </head>
     <body>
-      <div class="loader">Connecting to JazzCash...</div>
-      <form id="jazzcash-form" method="POST" action="${JAZZCASH_PAYMENT_URL}">
+      <div class="loader">Connecting to EasyPaisa...</div>
+      <form id="easypaisa-form" method="POST" action="${EASYPAISA_PAYMENT_URL}">
         ${Object.entries(paymentData)
           .map(
             ([key, value]) =>
@@ -62,7 +59,7 @@ export default function JazzCashPayment() {
       </form>
       <script>
         setTimeout(() => {
-          document.getElementById('jazzcash-form').submit();
+          document.getElementById('easypaisa-form').submit();
         }, 1000);
       </script>
     </body>
@@ -73,31 +70,24 @@ export default function JazzCashPayment() {
     const { url } = navState;
     setLoading(navState.loading);
 
-    // Check if returned from JazzCash
     if (url.includes('studentsave://payment/return') || url.includes('payment/return')) {
       try {
         const urlParams = new URLSearchParams(url.split('?')[1]);
-        const responseCode = urlParams.get('pp_ResponseCode');
-        const txnRefNo = urlParams.get('pp_TxnRefNo') || `JC_${Date.now()}`;
+        const status = urlParams.get('status');
+        const txnRefNo = urlParams.get('orderRefNum') || `EP_${Date.now()}`;
 
-        if (responseCode === '000') {
-          // Payment successful
+        if (status === '0000') {
           await handlePaymentSuccess(txnRefNo);
         } else {
           showAlert({
             type: 'error',
             title: 'Payment Failed',
-            message: `Transaction failed with code: ${responseCode}`,
+            message: 'Transaction was not successful',
             buttons: [
               {
                 text: 'Try Again',
                 onPress: () => router.back(),
                 style: 'default',
-              },
-              {
-                text: 'Cancel',
-                onPress: () => router.replace('/(student)/subscription'),
-                style: 'cancel',
               },
             ],
           });
@@ -126,7 +116,7 @@ export default function JazzCashPayment() {
         end_date: endDate.toISOString(),
         active: true,
         payment_method: 'mobile_wallet',
-        payment_provider: 'jazzcash',
+        payment_provider: 'easypaisa',
         payment_status: 'completed',
         transaction_id: transactionId,
       });
@@ -150,7 +140,7 @@ export default function JazzCashPayment() {
       showAlert({
         type: 'error',
         title: 'Error',
-        message: 'Payment successful but failed to activate subscription. Please contact support.',
+        message: 'Payment successful but failed to activate subscription',
       });
     }
   };
@@ -178,13 +168,8 @@ export default function JazzCashPayment() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1e1b4b',
-  },
-  webview: {
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: '#1e1b4b' },
+  webview: { flex: 1 },
   loadingOverlay: {
     position: 'absolute',
     top: 0,
@@ -196,9 +181,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1000,
   },
-  loadingText: {
-    color: 'white',
-    fontSize: 16,
-    marginTop: 16,
-  },
+  loadingText: { color: 'white', fontSize: 16, marginTop: 16 },
 });

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,125 +10,209 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { CheckCircle, X, Store, Calendar } from 'lucide-react-native';
 import { format } from 'date-fns';
+import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/store/authStore';
 
 export default function DiscountClaimedScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const user = useAuthStore((state) => state.user);
   
   const vendorName = params.vendorName as string;
   const vendorLogo = params.vendorLogo as string;
   const vendorLocation = params.vendorLocation as string;
   const discount = params.discount as string;
+  const vendorId = params.vendorId as string;
   
-  const currentDate = format(new Date(), 'MMM dd, yyyy');
-  const currentTime = format(new Date(), 'h:mm a');
-  const verificationCode = `VD-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+  const [transactionData, setTransactionData] = useState<{
+    date: string;
+    time: string;
+    verificationCode: string;
+  } | null>(null);
+
+  useEffect(() => {
+    // If transactionId is passed (from history), use it directly
+    const transactionId = params.transactionId as string;
+    const transactionTime = params.transactionTime as string;
+    
+    if (transactionId && transactionTime) {
+      // Coming from history with transaction details
+      const redeemedDate = new Date(transactionTime);
+      setTransactionData({
+        date: format(redeemedDate, 'MMM dd, yyyy'),
+        time: format(redeemedDate, 'h:mm a'),
+        verificationCode: transactionId.substring(0, 8).toUpperCase(),
+      });
+    } else if (vendorId) {
+      // Coming from QR scan, fetch latest transaction
+      fetchLatestTransaction();
+    } else {
+      // Fallback
+      const now = new Date();
+      setTransactionData({
+        date: format(now, 'MMM dd, yyyy'),
+        time: format(now, 'h:mm a'),
+        verificationCode: `VD-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+      });
+    }
+  }, []);
+
+  const fetchLatestTransaction = async () => {
+    if (!user?.id || !vendorId) return;
+
+    try {
+      // Get today's date at midnight for comparison
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Fetch the most recent transaction for this vendor today
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('vendor_id', vendorId)
+        .gte('redeemed_at', today.toISOString())
+        .order('redeemed_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (data && !error) {
+        const redeemedDate = new Date(data.redeemed_at);
+        setTransactionData({
+          date: format(redeemedDate, 'MMM dd, yyyy'),
+          time: format(redeemedDate, 'h:mm a'),
+          verificationCode: data.id.substring(0, 8).toUpperCase(),
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching transaction:', error);
+      // Fallback to current time if fetch fails
+      const now = new Date();
+      setTransactionData({
+        date: format(now, 'MMM dd, yyyy'),
+        time: format(now, 'h:mm a'),
+        verificationCode: `VD-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+      });
+    }
+  };
+
+  if (!transactionData) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
-    <View>
-      {/* Close Button */}
-      <TouchableOpacity 
-        style={styles.closeButton}
-        onPress={() => router.back()}
-      >
-        <X color="white" size={24} />
-      </TouchableOpacity>
+      <View>
+        {/* Close Button */}
+        <TouchableOpacity 
+          style={styles.closeButton}
+          onPress={() => router.back()}
+        >
+          <X color="white" size={24} />
+        </TouchableOpacity>
 
-      {/* Success Section */}
-      <View style={styles.successSection}>
-        <View style={styles.successIconBg}>
-          <CheckCircle 
-            color="#22c55e" 
-            size={80} 
-            strokeWidth={2.5}
-          />
-        </View>
-        
-        <Text style={styles.successTitle}>Discount Claimed!</Text>
-        <Text style={styles.successSubtitle}>
-          Show this screen to the vendor at checkout
-        </Text>
-      </View>
-
-      {/* Vendor Card */}
-      <View style={styles.vendorCard}>
-        <View style={styles.vendorHeader}>
-          <View style={styles.vendorLogoContainer}>
-            {vendorLogo?.startsWith('http') ? (
-              <Image
-                source={{ uri: vendorLogo }}
-                style={styles.vendorLogoImage}
-              />
-            ) : (
-              <Text style={styles.vendorLogoEmoji}>{vendorLogo || '🏪'}</Text>
-            )}
+        {/* Success Section */}
+        <View style={styles.successSection}>
+          <View style={styles.successIconBg}>
+            <CheckCircle 
+              color="#22c55e" 
+              size={80} 
+              strokeWidth={2.5}
+            />
           </View>
           
-          <View style={styles.vendorInfo}>
-            <Text style={styles.vendorName}>{vendorName}</Text>
-            <View style={styles.locationRow}>
-              <Store color="#c084fc" size={14} />
-              <Text style={styles.locationText}>{vendorLocation}</Text>
+          <Text style={styles.successTitle}>Discount Claimed!</Text>
+          <Text style={styles.successSubtitle}>
+            Show this screen to the vendor at checkout
+          </Text>
+        </View>
+
+        {/* Vendor Card */}
+        <View style={styles.vendorCard}>
+          <View style={styles.vendorHeader}>
+            <View style={styles.vendorLogoContainer}>
+              {vendorLogo?.startsWith('http') ? (
+                <Image
+                  source={{ uri: vendorLogo }}
+                  style={styles.vendorLogoImage}
+                />
+              ) : (
+                <Text style={styles.vendorLogoEmoji}>{vendorLogo || '🏪'}</Text>
+              )}
+            </View>
+            
+            <View style={styles.vendorInfo}>
+              <Text style={styles.vendorName}>{vendorName}</Text>
+              <View style={styles.locationRow}>
+                <Store color="#c084fc" size={14} />
+                <Text style={styles.locationText}>{vendorLocation}</Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* Discount Amount */}
-        <View style={styles.discountSection}>
-          <View style={styles.discountBadge}>
-            <Text style={styles.discountText}>{discount}</Text>
+          {/* Discount Amount */}
+          <View style={styles.discountSection}>
+            <View style={styles.discountBadge}>
+              <Text style={styles.discountText}>{discount}</Text>
+            </View>
+            <Text style={styles.discountLabel}>Discount Applied</Text>
           </View>
-          <Text style={styles.discountLabel}>Discount Applied</Text>
-        </View>
 
-        <View style={styles.divider} />
+          <View style={styles.divider} />
 
-        {/* Transaction Details */}
-        <View style={styles.detailsSection}>
-          <View style={styles.detailRow}>
-            <Calendar color="#c084fc" size={18} />
-            <Text style={styles.detailLabel}>Date & Time:</Text>
-            <Text style={styles.detailValue}>{currentDate} at {currentTime}</Text>
+          {/* Transaction Details */}
+          <View style={styles.detailsSection}>
+            <View style={styles.detailRow}>
+              <Calendar color="#c084fc" size={18} />
+              <Text style={styles.detailLabel}>Date & Time:</Text>
+              <Text style={styles.detailValue}>
+                {transactionData.date} at {transactionData.time}
+              </Text>
+            </View>
+          </View>
+
+          {/* Verification Code */}
+          <View style={styles.verificationSection}>
+            <Text style={styles.verificationLabel}>Verification Code</Text>
+            <Text style={styles.verificationCode}>
+              {transactionData.verificationCode}
+            </Text>
           </View>
         </View>
 
-        {/* Verification Code */}
-        <View style={styles.verificationSection}>
-          <Text style={styles.verificationLabel}>Verification Code</Text>
-          <Text style={styles.verificationCode}>{verificationCode}</Text>
+        {/* Instructions */}
+        <View style={styles.instructionsCard}>
+          <Text style={styles.instructionsTitle}>📋 Next Steps:</Text>
+          <Text style={styles.instructionItem}>1. Show this screen to the vendor</Text>
+          <Text style={styles.instructionItem}>2. Complete your purchase</Text>
+          <Text style={styles.instructionItem}>3. Enjoy your discount!</Text>
         </View>
-      </View>
 
-      {/* Instructions */}
-      <View style={styles.instructionsCard}>
-        <Text style={styles.instructionsTitle}>📋 Next Steps:</Text>
-        <Text style={styles.instructionItem}>1. Show this screen to the vendor</Text>
-        <Text style={styles.instructionItem}>2. Complete your purchase</Text>
-        <Text style={styles.instructionItem}>3. Enjoy your discount!</Text>
-      </View>
+        {/* Action Buttons */}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity 
+            style={styles.primaryButton}
+            onPress={() => router.replace('/(student)')}
+          >
+            <Text style={styles.primaryButtonText}>Done</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.secondaryButton}
+            onPress={() => router.replace('/(student)/history')}
+          >
+            <Text style={styles.secondaryButtonText}>View History</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Action Buttons */}
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={styles.primaryButton}
-          onPress={() => router.replace('/(student)')}
-        >
-          <Text style={styles.primaryButtonText}>Done</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.secondaryButton}
-          onPress={() => router.replace('/(student)/history')}
-        >
-          <Text style={styles.secondaryButtonText}>View History</Text>
-        </TouchableOpacity>
+        <Text style={styles.footerNote}>
+          💡 This discount can only be used once today
+        </Text>
       </View>
-
-      <Text style={styles.footerNote}>
-        💡 This discount can only be used once today
-      </Text>
-    </View>
     </ScrollView>
   );
 }
@@ -140,6 +224,12 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 60,
     paddingBottom: 50
+  },
+  loadingText: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 100,
   },
   closeButton: {
     position: 'absolute',
