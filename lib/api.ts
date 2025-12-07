@@ -135,15 +135,16 @@ export const fetchSubscriptionPlans = async (): Promise<SubscriptionPlan[]> => {
 export const fetchUserSubscription = async (
   userId: string
 ): Promise<UserSubscription | null> => {
+  // Get the most recent active subscription
   const { data, error } = await supabase
     .from('user_subscriptions')
     .select('*, subscription_plans(*)')
     .eq('user_id', userId)
     .eq('active', true)
     .gte('end_date', new Date().toISOString())
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+    .order('created_at', { ascending: false }) // Get most recent first
+    .limit(1) // Only get one
+    .maybeSingle(); // Use maybeSingle to handle 0 or 1 results
 
   if (error) {
     console.error('Error fetching user subscription:', error);

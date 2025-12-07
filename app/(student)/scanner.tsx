@@ -1,4 +1,4 @@
-// app/(student)/scanner.tsx
+// app/(student)/scanner.tsx - UPDATED WITH REAL-TIME SUBSCRIPTION DETECTION
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,18 +16,50 @@ export default function ScannerScreen() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
 
-  // Re-check subscription when screen comes into focus
+  // Check subscription on mount and when coming back to screen
   useEffect(() => {
     checkSubscription();
     
-    // Set up interval to re-check when returning to screen
+    // Set up real-time subscription listener
+    const setupRealtimeListener = () => {
+      if (!user?.id) return;
+
+      const channel = supabase
+        .channel('scanner-subscription-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'user_subscriptions',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log('Scanner: Subscription change detected:', payload);
+            // Re-check subscription status
+            checkSubscription();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    };
+
+    const cleanup = setupRealtimeListener();
+
+    // Also check every 2 seconds when on this screen (fallback)
     const interval = setInterval(() => {
       if (!showScanner) {
         checkSubscription();
       }
-    }, 1000); // Check every second when on this screen
+    }, 2000);
 
-    return () => clearInterval(interval);
+    return () => {
+      cleanup?.();
+      clearInterval(interval);
+    };
   }, [user?.id, showScanner]);
 
   const checkSubscription = async () => {
@@ -37,19 +69,29 @@ export default function ScannerScreen() {
     }
 
     try {
+      // Get the most recent active subscription
       const { data, error } = await supabase
         .from('user_subscriptions')
         .select('*')
         .eq('user_id', user.id)
         .eq('active', true)
         .gte('end_date', new Date().toISOString())
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       const isActive = !!data && !error;
       setHasSubscription(isActive);
       
       // Debug log
-      console.log('Subscription check:', { isActive, data, error });
+      console.log('Scanner subscription check:', { 
+        isActive, 
+        userId: user.id,
+        hasData: !!data,
+        subscriptionId: data?.id,
+        endDate: data?.end_date,
+        error: error?.message 
+      });
     } catch (error) {
       console.error('Subscription check error:', error);
       setHasSubscription(false);
@@ -160,7 +202,7 @@ export default function ScannerScreen() {
               style={styles.manageButton}
               onPress={() => router.push('/(student)/subscription')}
             >
-              <Text style={styles.manageButtonText}>Manage Subscription </Text>
+              <Text style={styles.manageButtonText}>Manage Subscription</Text>
             </TouchableOpacity>
           </>
         )}
@@ -175,7 +217,6 @@ export default function ScannerScreen() {
     </View>
     </SafeAreaView>
     </ScrollView>
-    
   );
 }
 

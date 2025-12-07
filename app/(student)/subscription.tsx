@@ -1,4 +1,4 @@
-// app/(student)/subscription.tsx - COMPLETE FILE
+// app/(student)/subscription.tsx - UPDATED WITH REAL-TIME SUBSCRIPTION DETECTION
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Modal,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Check, Crown, ChevronLeft, Zap, CreditCard } from 'lucide-react-native';
@@ -24,6 +25,7 @@ export default function SubscriptionScreen() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<UserSubscription | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [processingPlanId, setProcessingPlanId] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
@@ -31,17 +33,96 @@ export default function SubscriptionScreen() {
 
   useEffect(() => {
     loadData();
-  }, []);
+    
+    // Set up real-time subscription listener
+    const setupRealtimeListener = () => {
+      if (!user?.id) return;
+
+      console.log('Setting up realtime listener for user:', user.id);
+
+      const channel = supabase
+        .channel(`subscription-changes-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'user_subscriptions',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log('Subscription page: Change detected:', payload);
+            // Reload subscription data immediately
+            loadData();
+          }
+        )
+        .subscribe((status) => {
+          console.log('Subscription channel status:', status);
+        });
+
+      return () => {
+        console.log('Cleaning up subscription channel');
+        supabase.removeChannel(channel);
+      };
+    };
+
+    const cleanup = setupRealtimeListener();
+
+    // Also poll every 3 seconds as fallback
+    const pollInterval = setInterval(() => {
+      console.log('Polling for subscription updates...');
+      loadData();
+    }, 30000);
+
+    return () => {
+      cleanup?.();
+      clearInterval(pollInterval);
+    };
+  }, [user?.id]);
 
   const loadData = async () => {
-    const [plansData, subData] = await Promise.all([
-      fetchSubscriptionPlans(),
-      user?.id ? fetchUserSubscription(user.id) : Promise.resolve(null),
-    ]);
+    console.log('Loading subscription data...');
+    try {
+      const plansData = await fetchSubscriptionPlans();
+      setPlans(plansData);
 
-    setPlans(plansData);
-    setCurrentSubscription(subData);
-    setLoading(false);
+      if (user?.id) {
+        // Get the most recent active subscription directly
+        const { data, error } = await supabase
+          .from('user_subscriptions')
+          .select('*, subscription_plans(*)')
+          .eq('user_id', user.id)
+          .eq('active', true)
+          .gte('end_date', new Date().toISOString())
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!error && data) {
+          console.log('Found active subscription:', {
+            id: data.id,
+            planName: (data as any).subscription_plans?.name,
+            endDate: data.end_date,
+            active: data.active,
+          });
+          setCurrentSubscription(data);
+        } else {
+          console.log('No active subscription found', { error: error?.message });
+          setCurrentSubscription(null);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+      setCurrentSubscription(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
   };
 
   const handlePaymentMethodSelect = (plan: SubscriptionPlan) => {
@@ -115,8 +196,8 @@ export default function SubscriptionScreen() {
       });
 
       if (error) throw error;
-      await loadData();
-
+      
+      // Data will auto-reload via realtime listener
       showAlert({
         type: 'success',
         title: 'Activated! 🎉',
@@ -228,6 +309,14 @@ export default function SubscriptionScreen() {
         style={styles.content}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#c084fc"
+            colors={['#c084fc']}
+          />
+        }
       >
         {!currentSubscription && (
           <View style={styles.testSection}>
@@ -262,7 +351,8 @@ export default function SubscriptionScreen() {
               {(currentSubscription as any).subscription_plans?.name} Plan
             </Text>
             <Text style={styles.currentSubDate}>
-              Valid until {format(new Date(currentSubscription.end_date), 'MMM dd, yyyy ' )} </Text>
+              Valid until {format(new Date(currentSubscription.end_date), 'MMM dd, yyyy')}
+            </Text>
             <Text style={styles.currentSubStatus}>
               Status: {currentSubscription.active ? '✓ Active' : '✗ Expired'}
             </Text>
@@ -371,6 +461,7 @@ export default function SubscriptionScreen() {
   );
 }
 
+// Styles remain the same...
 const paymentModalStyles = StyleSheet.create({
   overlay: {
     flex: 1,
@@ -411,9 +502,8 @@ const paymentModalStyles = StyleSheet.create({
     flex: 1,
     minWidth: '45%',
     backgroundColor: '#c084fc',
-    paddingVertical:0,
+    paddingVertical: 2,
     paddingHorizontal: 16,
-    paddingBottom: 10,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -426,10 +516,8 @@ const paymentModalStyles = StyleSheet.create({
   },
   cancelButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginTop: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
     paddingVertical: 14,
+    marginTop: 40,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
