@@ -8,8 +8,6 @@
     "userInterfaceStyle": "light",
     "scheme": "studentsave",
     "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
       "backgroundColor": "#1e1b4b"
     },
     "assetBundlePatterns": [

@@ -1,6 +1,4 @@
-// Complete subscription.tsx with payment integration
-// Includes all the styles from previous implementation
-
+// app/(student)/subscription.tsx - COMPLETE FILE
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -9,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Check, Crown, ChevronLeft, Zap, CreditCard } from 'lucide-react-native';
@@ -26,6 +25,8 @@ export default function SubscriptionScreen() {
   const [currentSubscription, setCurrentSubscription] = useState<UserSubscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [processingPlanId, setProcessingPlanId] = useState<string | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const { alertConfig, showAlert, Alert } = useCustomAlert();
 
   useEffect(() => {
@@ -44,28 +45,8 @@ export default function SubscriptionScreen() {
   };
 
   const handlePaymentMethodSelect = (plan: SubscriptionPlan) => {
-    showAlert({
-      type: 'info',
-      title: 'Select Payment Method',
-      message: 'Choose your preferred payment method',
-      buttons: [
-        {
-          text: 'Cancel',
-          onPress: () => {},
-          style: 'cancel',
-        },
-        {
-          text: 'JazzCash',
-          onPress: () => initiatePayment(plan, 'jazzcash'),
-          style: 'default',
-        },
-        {
-          text: 'EasyPaisa',
-          onPress: () => initiatePayment(plan, 'easypaisa'),
-          style: 'default',
-        },
-      ],
-    });
+    setSelectedPlan(plan);
+    setShowPaymentModal(true);
   };
 
   const initiatePayment = (plan: SubscriptionPlan, method: 'jazzcash' | 'easypaisa') => {
@@ -73,6 +54,22 @@ export default function SubscriptionScreen() {
     
     router.push({
       pathname: method === 'jazzcash' ? '/(student)/jazzcash-payment' : '/(student)/easypaisa-payment',
+      params: {
+        planId: plan.id,
+        amount: plan.price,
+        planName: plan.name,
+        months: plan.duration_months,
+      },
+    });
+    
+    setProcessingPlanId(null);
+  };
+
+  const initiateManualPayment = (plan: SubscriptionPlan) => {
+    setProcessingPlanId(plan.id);
+    
+    router.push({
+      pathname: '/(student)/manual-payment',
       params: {
         planId: plan.id,
         amount: plan.price,
@@ -150,6 +147,61 @@ export default function SubscriptionScreen() {
     }
   };
 
+  const PaymentMethodModal = () => (
+    <Modal
+      visible={showPaymentModal}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setShowPaymentModal(false)}
+    >
+      <View style={paymentModalStyles.overlay}>
+        <View style={paymentModalStyles.container}>
+          <Text style={paymentModalStyles.title}>Select Payment Method</Text>
+          <Text style={paymentModalStyles.subtitle}>Choose your preferred payment method</Text>
+
+          <View style={paymentModalStyles.buttonGrid}>
+            <TouchableOpacity
+              style={paymentModalStyles.methodButton}
+              onPress={() => {
+                setShowPaymentModal(false);
+                if (selectedPlan) initiatePayment(selectedPlan, 'jazzcash');
+              }}
+            >
+              <Text style={paymentModalStyles.methodButtonText}>JazzCash{'\n'}(Auto)</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={paymentModalStyles.methodButton}
+              onPress={() => {
+                setShowPaymentModal(false);
+                if (selectedPlan) initiatePayment(selectedPlan, 'easypaisa');
+              }}
+            >
+              <Text style={paymentModalStyles.methodButtonText}>EasyPaisa{'\n'}(Auto)</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={paymentModalStyles.methodButton}
+              onPress={() => {
+                setShowPaymentModal(false);
+                if (selectedPlan) initiateManualPayment(selectedPlan);
+              }}
+            >
+              <Text style={paymentModalStyles.methodButtonText}>Manual Transfer</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={paymentModalStyles.cancelButton}
+            onPress={() => setShowPaymentModal(false)}
+          >
+            <Text style={paymentModalStyles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -162,6 +214,7 @@ export default function SubscriptionScreen() {
   return (
     <View style={styles.container}>
       <Alert />
+      <PaymentMethodModal />
       
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -209,8 +262,7 @@ export default function SubscriptionScreen() {
               {(currentSubscription as any).subscription_plans?.name} Plan
             </Text>
             <Text style={styles.currentSubDate}>
-              Valid until {format(new Date(currentSubscription.end_date), 'MMM dd, yyyy')}
-            </Text>
+              Valid until {format(new Date(currentSubscription.end_date), 'MMM dd, yyyy ' )} </Text>
             <Text style={styles.currentSubStatus}>
               Status: {currentSubscription.active ? '✓ Active' : '✗ Expired'}
             </Text>
@@ -319,6 +371,77 @@ export default function SubscriptionScreen() {
   );
 }
 
+const paymentModalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  container: {
+    backgroundColor: '#1e1b4b',
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  title: {
+    color: 'white',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  subtitle: {
+    color: '#c084fc',
+    fontSize: 14,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  buttonGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+  },
+  methodButton: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#c084fc',
+    paddingVertical:0,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  methodButtonText: {
+    color: '#1e1b4b',
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  cancelButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginTop: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  cancelButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+});
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1e1b4b' },
   loadingContainer: { flex: 1, backgroundColor: '#1e1b4b', justifyContent: 'center', alignItems: 'center' },
@@ -359,10 +482,6 @@ const styles = StyleSheet.create({
   selectButtonTextActive: { color: '#c084fc' },
   benefitsSection: { marginTop: 24, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 20, padding: 24, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' },
   benefitsTitle: { color: 'white', fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
-  buttons: {
-    flexDirection: 'row',
-    rowGap: 16
-  },
   benefit: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 },
   benefitEmoji: { fontSize: 32, marginRight: 16 },
   benefitContent: { flex: 1 },

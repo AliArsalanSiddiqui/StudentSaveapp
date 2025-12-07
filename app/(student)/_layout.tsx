@@ -88,6 +88,12 @@ export default function StudentLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="manual-payment"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
     </Tabs>
   );
 }

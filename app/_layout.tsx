@@ -1,13 +1,18 @@
 // app/_layout.tsx
-import '../lib/polyfills'; // Import polyfills FIRST
-import { useEffect, useState } from 'react';
+import '../lib/polyfills';
+import { useEffect, useState, useCallback } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
-import { View, ActivityIndicator, StyleSheet, Alert, Text } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { ErrorBoundary } from 'react-error-boundary';
+import SplashScreen from '@/components/SplashScreen';
+import * as ExpoSplashScreen from 'expo-splash-screen';
+
+// Keep the splash screen visible while we fetch resources
+ExpoSplashScreen.preventAutoHideAsync();
 
 function ErrorFallback({ error, resetErrorBoundary }: any) {
   return (
@@ -25,6 +30,7 @@ function ErrorFallback({ error, resetErrorBoundary }: any) {
 }
 
 export default function RootLayout() {
+  const [showSplash, setShowSplash] = useState(true);
   const [isReady, setIsReady] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const { user, setUser } = useAuthStore();
@@ -32,12 +38,13 @@ export default function RootLayout() {
   const segments = useSegments();
 
   useEffect(() => {
+    // Hide Expo splash screen immediately
+    ExpoSplashScreen.hideAsync();
     initializeAuth();
   }, []);
 
   const initializeAuth = async () => {
     try {
-      // Initial session check with timeout
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Connection timeout')), 10000)
       );
@@ -63,18 +70,15 @@ export default function RootLayout() {
     } catch (error: any) {
       console.error('Auth initialization error:', error);
       
-      // Retry logic for network errors
       if (retryCount < 2 && error.message?.includes('timeout')) {
         setRetryCount(retryCount + 1);
         setTimeout(() => initializeAuth(), 2000);
         return;
       }
 
-      // Allow app to load even if auth fails
       setIsReady(true);
     }
 
-    // Auth state listener
     try {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
         async (event, session) => {
@@ -119,19 +123,17 @@ export default function RootLayout() {
     }
   };
 
-  // Handle navigation based on auth state
+  // Handle navigation after both splash and auth are ready
   useEffect(() => {
-    if (!isReady) return;
+    if (!isReady || showSplash) return;
 
     const inAuthGroup = segments[0] === '(auth)';
     
-    // If no user and not in auth group, go to welcome
     if (!user && !inAuthGroup) {
       router.replace('/(auth)/welcome');
       return;
     }
 
-    // If user exists, navigate to their role-specific screen
     if (user && inAuthGroup) {
       if (user.role === 'student') {
         router.replace('/(student)');
@@ -139,8 +141,14 @@ export default function RootLayout() {
         router.replace('/(vendor)' as any);
       }
     }
-  }, [user, isReady, segments]);
+  }, [user, isReady, segments, showSplash]);
 
+  // Show custom splash screen ONLY
+  if (showSplash) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  }
+
+  // Show loading screen ONLY
   if (!isReady) {
     return (
       <View style={styles.loadingContainer}>
@@ -150,6 +158,7 @@ export default function RootLayout() {
     );
   }
 
+  // Only render navigation after splash is done AND auth is ready
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <GestureHandlerRootView style={{ flex: 1 }}>
