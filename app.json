@@ -7,9 +7,6 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "studentsave",
-    "splash": {
-      "backgroundColor": "#1e1b4b"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
