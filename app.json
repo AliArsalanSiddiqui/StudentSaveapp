@@ -27,7 +27,8 @@
       "package": "com.studentsave.app",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#1e1b4b"
+        "backgroundColor": "#1e1b4b",
+        "foregroundImage": "./assets/icon.png"
       },
       "permissions": [
         "android.permission.CAMERA",
