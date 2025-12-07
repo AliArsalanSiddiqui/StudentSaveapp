@@ -27,7 +27,6 @@
       "package": "com.studentsave.app",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive icon",
         "backgroundColor": "#1e1b4b"
       },
       "permissions": [
