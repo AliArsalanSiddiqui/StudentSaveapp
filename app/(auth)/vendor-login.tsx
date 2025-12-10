@@ -14,9 +14,11 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft, Mail, Store, Phone, MapPin } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
+import { useAuthStore } from '../../store/authStore';
 
 export default function VendorLogin(){
 const router = useRouter();
+  const setUser = useAuthStore((state) => state.setUser);
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -27,6 +29,24 @@ const router = useRouter();
   const [category, setCategory] = useState('Restaurant');
 
   const categories = ['Restaurant', 'Cafe', 'Arcade', 'Clothing', 'Entertainment'];
+
+  const handleSkipLogin = () => {
+    // Create a mock vendor user for testing
+    const mockVendorUser = {
+      id: 'test-vendor-' + Date.now(),
+      email: 'vendor@test.com',
+      name: 'Test Vendor',
+      role: 'vendor' as const,
+      verified: true,
+      created_at: new Date().toISOString(),
+    };
+    
+    // Set the mock user in the auth store
+    setUser(mockVendorUser);
+    
+    // Navigate to vendor dashboard
+    router.replace('/(vendor)' as any);
+  };
 
   const handleAuth = async () => {
     if (!email.trim()) {
@@ -285,16 +305,22 @@ const router = useRouter();
                     : 'New vendor? Register Now'}
                 </Text>
               </TouchableOpacity>
+
+              {/* Skip Login Button for Testing */}
+              <TouchableOpacity
+                style={styles.skipButton}
+                onPress={handleSkipLogin}
+              >
+                <Text style={styles.skipButtonText}>⚡ Skip Login (Testing)</Text>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.infoBox}>
-              <View style={styles.infoBox}>
-                <Text style={styles.infoText}>
-                  {isSignUp
+              <Text style={styles.infoText}>
+                {isSignUp
                   ? "🏪 Applications are reviewed within 24-48 hours"
                   : "✉️ We'll send a verification code to your email"}
-                  </Text>
-                  </View>
+              </Text>
             </View>
           </View>
         </ScrollView>
@@ -432,6 +458,20 @@ const styles = StyleSheet.create({
   },
   toggleButtonText: {
     color: '#c084fc',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  skipButton: {
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  skipButtonText: {
+    color: '#f59e0b',
     fontSize: 14,
     fontWeight: '600',
   },
