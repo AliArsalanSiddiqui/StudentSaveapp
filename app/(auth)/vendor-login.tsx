@@ -1,4 +1,4 @@
-// app/(auth)/vendor-login.tsx - FULLY FIXED VERSION
+// app/(auth)/vendor-login.tsx - WITH TEST DUMMY DATA
 import React, { useState } from 'react';
 import {
   View,
@@ -34,19 +34,84 @@ export default function VendorLogin() {
 
   const categories = ['Restaurant', 'Cafe', 'Arcade', 'Clothing', 'Entertainment'];
 
-  const handleSkipLogin = () => {
-    const mockVendorUser = {
-      id: 'test-vendor-' + Date.now(),
-      email: 'vendor@test.com',
-      name: 'Test Vendor',
-      role: 'vendor' as const,
-      verified: true,
-      created_at: new Date().toISOString(),
-    };
-    
-    const { setUser } = require('../../store/authStore').useAuthStore.getState();
-    setUser(mockVendorUser);
-    router.replace('/(vendor)' as any);
+  const handleSkipLogin = async () => {
+    try {
+      // Create test vendor data in Supabase
+      const testVendorId = 'test-vendor-' + Date.now();
+      const testUserId = 'test-user-' + Date.now();
+      
+      // First, create test user in users table
+      const { error: userError } = await supabase
+        .from('users')
+        .insert({
+          id: testUserId,
+          email: 'testvendor@example.com',
+          name: 'Test Vendor Owner',
+          phone: '+92 300 1234567',
+          role: 'vendor',
+          verified: true,
+        });
+
+      if (userError) {
+        console.log('User already exists or error:', userError);
+      }
+
+      // Then create test vendor
+      const { error: vendorError } = await supabase
+        .from('vendors')
+        .insert({
+          id: testVendorId,
+          owner_id: testUserId,
+          name: 'Test Pizza Palace',
+          category: 'Restaurant',
+          description: 'The best pizza in town! Fresh ingredients, authentic recipes, and amazing taste.',
+          discount_percentage: 25,
+          discount_text: '25% OFF',
+          logo_url: '🍕',
+          location: 'Gulshan-e-Iqbal, Block 13-D, Karachi',
+          rating: 4.5,
+          total_reviews: 127,
+          opening_hours: JSON.stringify({
+            monday: '11:00 AM - 11:00 PM',
+            tuesday: '11:00 AM - 11:00 PM',
+            wednesday: '11:00 AM - 11:00 PM',
+            thursday: '11:00 AM - 11:00 PM',
+            friday: '11:00 AM - 12:00 AM',
+            saturday: '11:00 AM - 12:00 AM',
+            sunday: '11:00 AM - 11:00 PM',
+          }),
+          terms: 'Valid on dine-in only. Cannot be combined with other offers. Student ID required.',
+          active: true,
+          qr_code: `VENDOR_${testVendorId}_${Date.now()}`,
+        });
+
+      if (vendorError) {
+        console.log('Vendor already exists or error:', vendorError);
+      }
+
+      // Create mock user object for auth store
+      const mockVendorUser = {
+        id: testUserId,
+        email: 'testvendor@example.com',
+        name: 'Test Vendor Owner',
+        phone: '+92 300 1234567',
+        role: 'vendor' as const,
+        verified: true,
+        created_at: new Date().toISOString(),
+      };
+      
+      const { setUser } = require('../../store/authStore').useAuthStore.getState();
+      setUser(mockVendorUser);
+      
+      router.replace('/(vendor)' as any);
+    } catch (error) {
+      console.error('Skip login error:', error);
+      showAlert({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to create test vendor. Please try again.',
+      });
+    }
   };
 
   const handleAuth = async () => {
@@ -59,7 +124,7 @@ export default function VendorLogin() {
 
     try {
       if (isSignUp) {
-        // ============== SIGN UP FLOW - FIXED ==============
+        // ============== SIGN UP FLOW ==============
         if (!businessName.trim() || !ownerName.trim() || !phone.trim() || !location.trim()) {
           showAlert({ type: 'error', title: 'Error', message: 'Please fill all fields' });
           setLoading(false);
@@ -74,13 +139,13 @@ export default function VendorLogin() {
 
         console.log('Starting vendor signup...');
 
-        // Step 1: Create auth user WITHOUT metadata (to avoid trigger conflicts)
+        // Step 1: Create auth user
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: email.trim(),
           password: password.trim(),
           options: {
             emailRedirectTo: undefined,
-            data: {}, // Empty metadata - we'll update profile manually
+            data: {},
           },
         });
 
@@ -95,24 +160,22 @@ export default function VendorLogin() {
 
         console.log('Auth user created:', authData.user.id);
 
-        // Step 2: Wait a bit for Supabase to create the user record via trigger
+        // Step 2: Wait for trigger to create user record
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // Step 3: Update the user profile (created by trigger) with vendor data
+        // Step 3: Update user profile
         const { error: updateError } = await supabase
           .from('users')
           .update({
             name: ownerName.trim(),
             phone: phone.trim(),
             role: 'vendor',
-            verified: true, // Auto-verify vendors
+            verified: true,
           })
           .eq('id', authData.user.id);
 
         if (updateError) {
           console.error('User profile update error:', updateError);
-          // Don't throw - profile exists, just update failed
-          // Try to continue with vendor creation
         }
 
         console.log('User profile updated');
@@ -126,7 +189,7 @@ export default function VendorLogin() {
           discount_percentage: 20,
           discount_text: '20% OFF',
           qr_code: `VENDOR_${authData.user.id}_${Date.now()}`,
-          active: false, // Pending admin approval
+          active: false,
           rating: 0,
           total_reviews: 0,
         });
@@ -138,10 +201,9 @@ export default function VendorLogin() {
 
         console.log('Vendor profile created successfully');
 
-        // Step 5: Sign out temporarily to ensure clean state
+        // Step 5: Sign out and back in
         await supabase.auth.signOut();
 
-        // Step 6: Sign in immediately to get proper session
         const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password: password.trim(),
@@ -154,7 +216,6 @@ export default function VendorLogin() {
 
         console.log('Auto sign-in successful');
 
-        // Success - Show alert and navigate
         showAlert({
           type: 'success',
           title: 'Account Created! 🎉',
@@ -163,7 +224,6 @@ export default function VendorLogin() {
             {
               text: 'Continue',
               onPress: () => {
-                // Navigate to vendor dashboard
                 router.replace('/(vendor)' as any);
               },
               style: 'default',
