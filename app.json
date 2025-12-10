@@ -7,9 +7,14 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "studentsave",
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+
+    "splash": {
+      "backgroundColor": "#1e1b4b",
+      "resizeMode": "contain"
+    },
+
+    "assetBundlePatterns": ["**/*"],
+
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.studentsave.app",
@@ -20,6 +25,7 @@
         "ITSAppUsesNonExemptEncryption": false
       }
     },
+
     "android": {
       "package": "com.studentsave.app",
       "versionCode": 1,
@@ -37,10 +43,12 @@
         "android.permission.ACCESS_NETWORK_STATE"
       ]
     },
+
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
+
     "plugins": [
       "expo-router",
       [
@@ -57,21 +65,24 @@
       ],
       "expo-asset"
     ],
+
     "experiments": {
       "typedRoutes": true
     },
+
     "extra": {
-      "router": {
-        "origin": false
-      },
+      "router": { "origin": false },
       "eas": {
         "projectId": "75a5ca88-15e2-4e62-81ff-5da6d6d3ada6"
       }
     },
+
     "owner": "studentsaves-organization",
+
     "runtimeVersion": {
       "policy": "appVersion"
     },
+
     "updates": {
       "url": "https://u.expo.dev/75a5ca88-15e2-4e62-81ff-5da6d6d3ada6"
     }
