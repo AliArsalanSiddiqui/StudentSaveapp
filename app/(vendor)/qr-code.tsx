@@ -186,7 +186,7 @@ export default function VendorQRCodeScreen() {
   if (!vendor) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.errorText}>Vendor not found</Text>
+        <Text style={styles.errorText}>Vendor not found </Text>
       </View>
     );
   }
