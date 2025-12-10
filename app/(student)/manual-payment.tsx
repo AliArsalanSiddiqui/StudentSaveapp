@@ -237,7 +237,7 @@ export default function ManualPaymentScreen() {
         <View style={styles.planCard}>
           <Text style={styles.planName}>{planName} Plan</Text>
           <Text style={styles.planAmount}>₨{amount}</Text>
-          <Text style={styles.planDuration}>Valid for {months} month(s)</Text>
+          <Text style={styles.planDuration}>Valid for {months} month(s) </Text>
         </View>
 
         {/* Payment Method Selection */}
@@ -351,7 +351,7 @@ export default function ManualPaymentScreen() {
             <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
               <Upload color="#c084fc" size={40} />
               <Text style={styles.uploadButtonText}>Tap to Upload Screenshot</Text>
-              <Text style={styles.uploadButtonSubtext}>JPG, PNG supported</Text>
+              <Text style={styles.uploadButtonSubtext}>JPG, PNG supported </Text>
             </TouchableOpacity>
           )}
         </View>

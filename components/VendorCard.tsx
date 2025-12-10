@@ -41,14 +41,13 @@ export default function VendorCard({ vendor, onPress }: VendorCardProps) {
         <View style={styles.locationRow}>
           <MapPin color="#c084fc" size={14} />
           <Text style={styles.locationText} numberOfLines={1}>
-            {vendor.location}
-          </Text>
+            {vendor.location} </Text>
         </View>
 
         {/* Rating */}
         <View style={styles.ratingRow}>
           <Star color="#fbbf24" size={14} fill="#fbbf24" />
-          <Text style={styles.ratingText}>{vendor.rating} </Text>
+          <Text style={styles.ratingText}>{vendor.rating}</Text>
           <Text style={styles.reviewCount}>({vendor.total_reviews}) </Text>
         </View>
       </View>

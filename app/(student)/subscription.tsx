@@ -248,7 +248,7 @@ export default function SubscriptionScreen() {
                 if (selectedPlan) initiatePayment(selectedPlan, 'jazzcash');
               }}
             >
-              <Text style={paymentModalStyles.methodButtonText}>JazzCash{'\n'}(Auto)</Text>
+              <Text style={paymentModalStyles.methodButtonText}>JazzCash</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -258,7 +258,7 @@ export default function SubscriptionScreen() {
                 if (selectedPlan) initiatePayment(selectedPlan, 'easypaisa');
               }}
             >
-              <Text style={paymentModalStyles.methodButtonText}>EasyPaisa{'\n'}(Auto)</Text>
+              <Text style={paymentModalStyles.methodButtonText}>EasyPaisa</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -351,8 +351,7 @@ export default function SubscriptionScreen() {
               {(currentSubscription as any).subscription_plans?.name} Plan
             </Text>
             <Text style={styles.currentSubDate}>
-              Valid until {format(new Date(currentSubscription.end_date), 'MMM dd, yyyy')}
-            </Text>
+              Valid until {format(new Date(currentSubscription.end_date), 'MMM dd, yyyy ')} </Text>
             <Text style={styles.currentSubStatus}>
               Status: {currentSubscription.active ? '✓ Active' : '✗ Expired'}
             </Text>

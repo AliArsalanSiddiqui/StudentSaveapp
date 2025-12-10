@@ -158,7 +158,7 @@ export default function ProfileScreen() {
           </View>
 
           <Text style={styles.userName}>{user?.name || 'Student'}</Text>
-          <Text style={styles.userEmail}>{user?.email}</Text>
+          <Text style={styles.userEmail}>{user?.email} </Text>
 
           {user?.verified && (
             <View style={styles.verifiedBadge}>

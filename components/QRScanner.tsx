@@ -11,9 +11,10 @@ import { AlertConfig } from '@/types';
 interface QRScannerProps {
   onClose: () => void;
   onSuccess: (vendorId: string, vendorData: any) => void;
+  restrictToVendorId?: string; // NEW: Optional vendor ID to restrict scanning
 }
 
-export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
+export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QRScannerProps) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -78,6 +79,17 @@ export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
 
       if (vendorError || !vendor) {
         showAlert('Error', 'Invalid QR code', 'error');
+        resetScanner();
+        return;
+      }
+
+      // NEW: Check if scanning is restricted to a specific vendor
+      if (restrictToVendorId && vendor.id !== restrictToVendorId) {
+        showAlert(
+          'Wrong Vendor QR Code',
+          'This QR code does not belong to this vendor. Please scan the correct vendor\'s QR code.',
+          'warning'
+        );
         resetScanner();
         return;
       }
@@ -158,7 +170,7 @@ export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
                   vendorLogo: vendor.logo_url || '🏪',
                   vendorLocation: vendor.location,
                   discount: vendor.discount_text,
-                  vendorId: vendor.id, // Pass vendor ID
+                  vendorId: vendor.id,
                 },
               });
             },
@@ -218,7 +230,12 @@ export default function QRScanner({ onClose, onSuccess }: QRScannerProps) {
 
           <View style={styles.instructions}>
             <Text style={styles.instructionText}>
-              {processing ? 'Processing...' : 'Point camera at vendor QR code'}
+              {processing 
+                ? 'Processing...' 
+                : restrictToVendorId 
+                  ? 'Point camera at this vendor\'s QR code'
+                  : 'Point camera at vendor QR code'
+              }
             </Text>
           </View>
         </View>
@@ -263,7 +280,15 @@ const styles = StyleSheet.create({
   bottomLeft: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 8 },
   bottomRight: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 8 },
   instructions: { position: 'absolute', bottom: 100, left: 0, right: 0, alignItems: 'center' },
-  instructionText: { color: 'white', fontSize: 16, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 },
+  instructionText: { 
+    color: 'white', 
+    fontSize: 16, 
+    backgroundColor: 'rgba(0,0,0,0.7)', 
+    paddingHorizontal: 24, 
+    paddingVertical: 12, 
+    borderRadius: 24,
+    textAlign: 'center',
+  },
   text: { color: 'white', fontSize: 16, textAlign: 'center', marginTop: 100, marginHorizontal: 24 },
   button: { backgroundColor: '#c084fc', marginHorizontal: 24, marginTop: 24, padding: 16, borderRadius: 12, alignItems: 'center' },
   buttonText: { color: '#1e1b4b', fontSize: 16, fontWeight: '600' },

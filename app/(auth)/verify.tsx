@@ -79,7 +79,10 @@ export default function VerifyScreen() {
       
       if (error.message?.includes('timeout')) {
         errorMessage = 'Connection timeout. Please try again.';
-      } else if (error.message?.includes('expired')) {
+      } else if (error.message?.includes('invalid')) {
+        errorMessage = 'Verification code expired. Please request a new one.';
+      }
+      else if (error.message?.includes('expired')) {
         errorMessage = 'Verification code expired. Please request a new one.';
       } else if (error.message) {
         errorMessage = error.message;
@@ -188,7 +191,7 @@ export default function VerifyScreen() {
         </TouchableOpacity>
 
         <View style={styles.resendContainer}>
-          <Text style={styles.resendText}>Didn't receive the code?</Text>
+          <Text style={styles.resendText}>Didn't receive the code? </Text>
           <TouchableOpacity onPress={handleResend}>
             <Text style={styles.resendButton}>Resend Code</Text>
           </TouchableOpacity>
@@ -197,8 +200,7 @@ export default function VerifyScreen() {
         {/* Info */}
         <View style={styles.infoBox}>
           <Text style={styles.infoText}>
-            💡 Check your spam folder if you don't see the email
-          </Text>
+            💡 Check your spam folder if you don't see the email </Text>
         </View>
       </View>
     </LinearGradient>

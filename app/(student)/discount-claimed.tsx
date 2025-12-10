@@ -149,7 +149,7 @@ export default function DiscountClaimedScreen() {
               <Text style={styles.vendorName}>{vendorName}</Text>
               <View style={styles.locationRow}>
                 <Store color="#c084fc" size={14} />
-                <Text style={styles.locationText}>{vendorLocation}</Text>
+                <Text style={styles.locationText}>{vendorLocation} </Text>
               </View>
             </View>
           </View>

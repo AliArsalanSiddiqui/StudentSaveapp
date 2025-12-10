@@ -62,15 +62,14 @@ export default function StudentLogin() {
 
   const handleAuth = async () => {
     if (!email.trim()) {
-      showAlert("Error", "Please enter your email", "error");
+      showAlert("Error", "Please enter your email ", "error");
       return;
     }
 
     if (!validateStudentEmail(email)) {
       showAlert(
         "Invalid Email",
-        "Please use your university email address ending with .edu.pk\n\nExample: student@university.edu.pk",
-        "error"
+        "Please use your correct university email", "error"
       );
       return;
     }
@@ -314,8 +313,7 @@ export default function StudentLogin() {
                   disabled={loading}
                 >
                   <Text style={styles.resendButtonText}>
-                    Need verification code? Resend
-                  </Text>
+                    Need verification code? Resend </Text>
                 </TouchableOpacity>
               )}
 

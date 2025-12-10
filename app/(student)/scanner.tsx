@@ -202,7 +202,7 @@ export default function ScannerScreen() {
               style={styles.manageButton}
               onPress={() => router.push('/(student)/subscription')}
             >
-              <Text style={styles.manageButtonText}>Manage Subscription</Text>
+              <Text style={styles.manageButtonText}>Manage Subscriptions </Text>
             </TouchableOpacity>
           </>
         )}

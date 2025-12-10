@@ -5,7 +5,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   Modal,
   Image
 } from 'react-native';
@@ -67,6 +66,7 @@ export default function VendorDetailScreen() {
         vendorLogo: vendor?.logo_url,
         vendorLocation: vendor?.location,
         discount: vendor?.discount_text,
+        vendorId: vendor?.id,
       },
     });
   };
@@ -133,10 +133,10 @@ export default function VendorDetailScreen() {
 
         {/* Vendor Info Card */}
         <View style={styles.vendorCard}>
-          <Text style={styles.vendorName}>{vendor.name} </Text>
+          <Text style={styles.vendorName}>{vendor.name}</Text>
 
           <View style={styles.categoryBadge}>
-            <Text style={styles.categoryText}>{vendor.category} </Text>
+            <Text style={styles.categoryText}>{vendor.category}</Text>
           </View>
 
           <View style={styles.statsRow}>
@@ -154,7 +154,7 @@ export default function VendorDetailScreen() {
             <MapPin color="#c084fc" size={20} />
             <Text style={styles.sectionTitle}>Location</Text>
           </View>
-          <Text style={styles.locationText}>{vendor.location} </Text>
+          <Text style={styles.locationText}>{vendor.location}</Text>
         </View>
 
         {/* Description */}
@@ -200,11 +200,12 @@ export default function VendorDetailScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* QR Scanner Modal */}
+      {/* QR Scanner Modal - NOW WITH VENDOR ID RESTRICTION */}
       <Modal visible={showScanner} animationType="slide">
         <QRScanner
           onClose={() => setShowScanner(false)}
           onSuccess={handleScanSuccess}
+          restrictToVendorId={vendor.id} // Pass vendor ID to restrict scanning
         />
       </Modal>
     </View>
