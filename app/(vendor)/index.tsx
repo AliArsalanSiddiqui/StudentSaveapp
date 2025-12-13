@@ -1,3 +1,4 @@
+// app/(vendor)/index.tsx - CLEANED VERSION WITHOUT TEST LOGIN
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -15,52 +16,171 @@ export default function VendorHome() {
   const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const [vendor, setVendor] = useState<any>(null);
+  const [vendorRegistration, setVendorRegistration] = useState<any>(null);
   const [stats, setStats] = useState({
     totalScans: 0,
     todayScans: 0,
     totalRevenue: 0,
     rating: 0,
   });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (user?.id) {
       fetchVendorData();
-      fetchStats();
     }
   }, [user]);
 
   const fetchVendorData = async () => {
-    const { data } = await supabase
-      .from('vendors')
-      .select('*')
-      .eq('owner_id', user?.id)
-      .single();
+    try {
+      // Fetch vendor registration
+      const { data: regData } = await supabase
+        .from('vendor_registrations')
+        .select('*')
+        .eq('owner_id', user?.id)
+        .single();
 
-    if (data) setVendor(data);
+      if (regData) {
+        setVendorRegistration(regData);
+
+        // Only fetch vendor data if verified
+        if (regData.verified) {
+          const { data: vendorData } = await supabase
+            .from('vendors')
+            .select('*')
+            .eq('id', regData.id)
+            .single();
+
+          if (vendorData) {
+            setVendor(vendorData);
+            await fetchStats(vendorData.id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching vendor data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const fetchStats = async () => {
-    // Fetch transaction stats
-    const { data: transactions } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('vendor_id', vendor?.id);
+  const fetchStats = async (vendorId: string) => {
+    try {
+      // Fetch transaction stats
+      const { data: transactions } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('vendor_id', vendorId);
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-    const todayScans = transactions?.filter(
-      (t) => new Date(t.redeemed_at) >= today
-    ).length || 0;
+      const todayScans = transactions?.filter(
+        (t) => new Date(t.redeemed_at) >= today
+      ).length || 0;
 
-    setStats({
-      totalScans: transactions?.length || 0,
-      todayScans,
-      totalRevenue: 0,
-      rating: vendor?.rating || 0,
-    });
+      setStats({
+        totalScans: transactions?.length || 0,
+        todayScans,
+        totalRevenue: 0,
+        rating: vendor?.rating || 0,
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
   };
 
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
+
+  // Show pending approval message if not verified
+  if (vendorRegistration && !vendorRegistration.verified) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerTop}>
+            <View style={styles.logoContainer}>
+              <View style={styles.logo}>
+                <Store color="white" size={24} />
+              </View>
+              <View>
+                <Text style={styles.brandName}>StudentSave</Text>
+                <Text style={styles.vendorRole}>Vendor Dashboard</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.pendingContainer}>
+          <View style={styles.pendingIcon}>
+            <Text style={styles.pendingEmoji}>⏳</Text>
+          </View>
+          <Text style={styles.pendingTitle}>Pending Verification</Text>
+          <Text style={styles.pendingMessage}>
+            Your vendor registration is being reviewed by our admin team.
+            {'\n\n'}
+            You will receive an email notification once your account is verified
+            (usually within 24-48 hours).
+            {'\n\n'}
+            Thank you for your patience!
+          </Text>
+          <TouchableOpacity
+            style={styles.contactButton}
+            onPress={() => {
+              // Show contact info
+            }}
+          >
+            <Text style={styles.contactButtonText}>Contact Support</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // Show rejected message if rejected
+  if (vendorRegistration?.rejected) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerTop}>
+            <View style={styles.logoContainer}>
+              <View style={styles.logo}>
+                <Store color="white" size={24} />
+              </View>
+              <View>
+                <Text style={styles.brandName}>StudentSave</Text>
+                <Text style={styles.vendorRole}>Vendor Dashboard</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.rejectedContainer}>
+          <View style={styles.rejectedIcon}>
+            <Text style={styles.rejectedEmoji}>❌</Text>
+          </View>
+          <Text style={styles.rejectedTitle}>Registration Rejected</Text>
+          <Text style={styles.rejectedMessage}>
+            Your vendor registration was not approved.
+            {'\n\n'}
+            Reason: {vendorRegistration.rejection_reason || 'Not specified'}
+            {'\n\n'}
+            Please contact support for more information.
+          </Text>
+          <TouchableOpacity style={styles.contactButton}>
+            <Text style={styles.contactButtonText}>Contact Support</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // Normal verified vendor dashboard
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -88,11 +208,11 @@ export default function VendorHome() {
               <View
                 style={[
                   styles.statusDot,
-                  { backgroundColor: vendor.active ? '#22c55e' : '#ef4444' },
+                  { backgroundColor: vendor.active ? '#22c55e' : '#f59e0b' },
                 ]}
               />
               <Text style={styles.statusText}>
-                {vendor.active ? 'Active' : 'Pending Approval'}
+                {vendor.active ? 'Active' : 'Inactive'}
               </Text>
             </View>
           </View>
@@ -120,7 +240,7 @@ export default function VendorHome() {
             <View style={[styles.statIcon, { backgroundColor: '#f59e0b' }]}>
               <Award color="white" size={24} />
             </View>
-            <Text style={styles.statValue}>{stats.rating.toFixed(1)}</Text>
+            <Text style={styles.statValue}>{vendor?.rating?.toFixed(1) || '0.0'}</Text>
             <Text style={styles.statLabel}>Rating</Text>
           </View>
         </View>
@@ -131,7 +251,7 @@ export default function VendorHome() {
           
           <TouchableOpacity
             style={styles.actionCard}
-            //onPress={() => router.push('/(vendor)/qr-code')}
+            onPress={() => router.push('/(vendor)/qr-code')}
           >
             <View style={styles.actionIcon}>
               <Store color="#f59e0b" size={24} />
@@ -146,7 +266,7 @@ export default function VendorHome() {
 
           <TouchableOpacity
             style={styles.actionCard}
-            //onPress={() => router.push('/(vendor)/analytics')}
+            onPress={() => router.push('/(vendor)/analytics')}
           >
             <View style={styles.actionIcon}>
               <TrendingUp color="#f59e0b" size={24} />
@@ -160,14 +280,6 @@ export default function VendorHome() {
           </TouchableOpacity>
         </View>
 
-        {!vendor?.active && (
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>
-              ⏳ Your vendor account is pending approval. You'll be notified once it's activated.
-            </Text>
-          </View>
-        )}
-
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>
@@ -178,6 +290,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1e1b4b',
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#1e1b4b',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: 'white',
+    fontSize: 16,
   },
   header: {
     padding: 16,
@@ -214,6 +336,85 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  pendingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  pendingIcon: {
+    width: 120,
+    height: 120,
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    borderWidth: 3,
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+  },
+  pendingEmoji: {
+    fontSize: 64,
+  },
+  pendingTitle: {
+    color: 'white',
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  pendingMessage: {
+    color: '#c084fc',
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  rejectedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  rejectedIcon: {
+    width: 120,
+    height: 120,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    borderWidth: 3,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  rejectedEmoji: {
+    fontSize: 64,
+  },
+  rejectedTitle: {
+    color: 'white',
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  rejectedMessage: {
+    color: '#c084fc',
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  contactButton: {
+    backgroundColor: '#f59e0b',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+  },
+  contactButtonText: {
+    color: '#1e1b4b',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   vendorCard: {
     margin: 16,
@@ -328,19 +529,5 @@ const styles = StyleSheet.create({
   actionSubtitle: {
     color: '#c084fc',
     fontSize: 14,
-  },
-  infoBox: {
-    marginHorizontal: 16,
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
-    borderRadius: 12,
-    padding: 16,
-  },
-  infoText: {
-    color: '#f59e0b',
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
   },
 });

@@ -1,4 +1,4 @@
-// app/(student)/manual-payment.tsx
+// app/(student)/manual-payment.tsx - FIXED FOR PHYSICAL DEVICES
 import React, { useState } from 'react';
 import {
   View,
@@ -7,11 +7,11 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
-  Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Copy, Check, Upload, CreditCard } from 'lucide-react-native';
+import { ChevronLeft, Copy, Check, Upload, CreditCard, AlertCircle } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import { supabase } from '@/lib/supabase';
@@ -33,17 +33,7 @@ export default function ManualPaymentScreen() {
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const testStorageConnection = async () => {
-  try {
-    const { data, error } = await supabase.storage.listBuckets();
-    console.log('Buckets:', data);
-    if (error) console.error('Storage error:', error);
-    Alert.alert('Buckets', JSON.stringify(data, null, 2));
-  } catch (e) {
-    console.error('Connection error:', e);
-    Alert.alert('Error', JSON.stringify(e));
-  }
-};
+
   // Account details from environment variables
   const JAZZCASH_ACCOUNT = process.env.EXPO_PUBLIC_JAZZCASH_MANUAL_ACCOUNT || '03001234567';
   const JAZZCASH_NAME = process.env.EXPO_PUBLIC_JAZZCASH_ACCOUNT_NAME || 'StudentSave';
@@ -54,80 +44,88 @@ export default function ManualPaymentScreen() {
     await Clipboard.setStringAsync(text);
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
-    showAlert({
-      type: 'success',
-      title: 'Copied!',
-      message: `${field} copied to clipboard`,
-    });
   };
 
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (status !== 'granted') {
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        showAlert({
+          type: 'error',
+          title: 'Permission Required',
+          message: 'Please grant photo library access to upload payment proof',
+        });
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.7, // Compress to 70% quality
+        allowsMultipleSelection: false,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setScreenshot(result.assets[0].uri);
+      }
+    } catch (error: any) {
+      console.error('Image picker error:', error);
       showAlert({
         type: 'error',
-        title: 'Permission Required',
-        message: 'Please grant photo library access to upload payment proof',
+        title: 'Error',
+        message: 'Failed to open image picker: ' + error.message,
       });
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true, // Enable editing interface
-      allowsMultipleSelection: false,
-      quality: 0.8,
-      // No aspect ratio constraint - user can crop any size they want
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      setScreenshot(result.assets[0].uri);
     }
   };
 
   const uploadScreenshot = async (): Promise<string | null> => {
-    if (!screenshot) return null;
+    if (!screenshot || !user?.id) return null;
 
     try {
       console.log('Starting upload...', screenshot);
 
-      // Read file as base64
-      const base64Response = await fetch(screenshot);
-      const blob = await base64Response.blob();
-      
-      // Convert blob to base64
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve, reject) => {
-        reader.onloadend = () => {
-          const base64String = reader.result as string;
-          resolve(base64String.split(',')[1]); // Remove data:image/jpeg;base64, prefix
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-
-      const base64Data = await base64Promise;
-      console.log('Base64 data length:', base64Data.length);
-
-      // Create unique filename
+      // Get file extension
       const fileExt = screenshot.split('.').pop()?.toLowerCase() || 'jpg';
-      const fileName = `${user?.id}/${Date.now()}.${fileExt}`;
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      
       console.log('Uploading to:', fileName);
 
-      // Decode base64 to binary
-      const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      // Read file as blob (React Native compatible)
+      const response = await fetch(screenshot);
+      if (!response.ok) {
+        throw new Error('Failed to read image file');
+      }
+      
+      const blob = await response.blob();
+      console.log('Blob size:', blob.size);
+
+      // Check bucket exists first
+      const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
+      console.log('Available buckets:', buckets?.map(b => b.name));
+      
+      if (bucketError) {
+        console.error('Bucket list error:', bucketError);
+      }
+
+      const bucketExists = buckets?.some(b => b.name === 'payment-proofs');
+      if (!bucketExists) {
+        throw new Error('Storage bucket "payment-proofs" does not exist. Please create it in Supabase Dashboard.');
+      }
 
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
         .from('payment-proofs')
-        .upload(fileName, binaryData, {
+        .upload(fileName, blob, {
           contentType: `image/${fileExt}`,
+          cacheControl: '3600',
           upsert: false,
         });
 
       if (error) {
-        console.error('Supabase storage error:', error);
+        console.error('Upload error:', error);
         throw error;
       }
 
@@ -141,16 +139,13 @@ export default function ManualPaymentScreen() {
       console.log('Public URL:', urlData.publicUrl);
       return urlData.publicUrl;
     } catch (error: any) {
-      console.error('Upload error details:', {
-        message: error.message,
-        name: error.name,
-        stack: error.stack,
-      });
-      return null;
+      console.error('Upload error details:', error);
+      throw error;
     }
   };
 
   const handleSubmit = async () => {
+    // Validation
     if (!selectedMethod) {
       showAlert({
         type: 'warning',
@@ -179,7 +174,19 @@ export default function ManualPaymentScreen() {
         throw new Error('Failed to upload screenshot');
       }
 
-      // Create pending subscription record
+      console.log('Screenshot uploaded:', screenshotUrl);
+
+      // Check if table exists by trying to query it
+      const { error: tableCheckError } = await supabase
+        .from('manual_payment_submissions')
+        .select('id')
+        .limit(1);
+
+      if (tableCheckError && tableCheckError.message.includes('does not exist')) {
+        throw new Error('Database table "manual_payment_submissions" does not exist. Please create it in Supabase.');
+      }
+
+      // Create pending submission record
       const { error } = await supabase.from('manual_payment_submissions').insert({
         user_id: user?.id,
         plan_id: planId,
@@ -193,7 +200,12 @@ export default function ManualPaymentScreen() {
         plan_duration_months: months,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database insert error:', error);
+        throw error;
+      }
+
+      console.log('Submission created successfully');
 
       showAlert({
         type: 'success',
@@ -209,10 +221,21 @@ export default function ManualPaymentScreen() {
       });
     } catch (error: any) {
       console.error('Submission error:', error);
+      
+      let errorMessage = 'Failed to submit payment proof';
+      
+      if (error.message.includes('bucket')) {
+        errorMessage = 'Storage not configured. Please contact support.';
+      } else if (error.message.includes('table')) {
+        errorMessage = 'Database not configured. Please contact support.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       showAlert({
         type: 'error',
         title: 'Submission Failed',
-        message: error.message || 'Failed to submit payment proof',
+        message: errorMessage,
       });
     } finally {
       setUploading(false);
@@ -237,12 +260,12 @@ export default function ManualPaymentScreen() {
         <View style={styles.planCard}>
           <Text style={styles.planName}>{planName} Plan</Text>
           <Text style={styles.planAmount}>₨{amount}</Text>
-          <Text style={styles.planDuration}>Valid for {months} month(s) </Text>
+          <Text style={styles.planDuration}>Valid for {months} month(s)</Text>
         </View>
 
         {/* Payment Method Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Select Payment Method</Text>
+          <Text style={styles.sectionTitle}>1. Select Payment Method</Text>
           
           <TouchableOpacity
             style={[
@@ -254,14 +277,15 @@ export default function ManualPaymentScreen() {
             <View style={styles.methodHeader}>
               <CreditCard color={selectedMethod === 'jazzcash' ? '#c084fc' : 'white'} size={24} />
               <Text style={styles.methodName}>JazzCash</Text>
+              {selectedMethod === 'jazzcash' && <Check color="#22c55e" size={24} />}
             </View>
             {selectedMethod === 'jazzcash' && (
               <View style={styles.methodDetails}>
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Account Title:</Text>
                   <Text style={styles.detailValue}>{JAZZCASH_NAME}</Text>
-                  <TouchableOpacity onPress={() => copyToClipboard(JAZZCASH_NAME, 'Name')}>
-                    {copiedField === 'Name' ? (
+                  <TouchableOpacity onPress={() => copyToClipboard(JAZZCASH_NAME, 'JazzCash Name')}>
+                    {copiedField === 'JazzCash Name' ? (
                       <Check color="#22c55e" size={20} />
                     ) : (
                       <Copy color="#c084fc" size={20} />
@@ -271,8 +295,8 @@ export default function ManualPaymentScreen() {
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Account Number:</Text>
                   <Text style={styles.detailValue}>{JAZZCASH_ACCOUNT}</Text>
-                  <TouchableOpacity onPress={() => copyToClipboard(JAZZCASH_ACCOUNT, 'Account')}>
-                    {copiedField === 'Account' ? (
+                  <TouchableOpacity onPress={() => copyToClipboard(JAZZCASH_ACCOUNT, 'JazzCash Account')}>
+                    {copiedField === 'JazzCash Account' ? (
                       <Check color="#22c55e" size={20} />
                     ) : (
                       <Copy color="#c084fc" size={20} />
@@ -293,14 +317,15 @@ export default function ManualPaymentScreen() {
             <View style={styles.methodHeader}>
               <CreditCard color={selectedMethod === 'easypaisa' ? '#c084fc' : 'white'} size={24} />
               <Text style={styles.methodName}>EasyPaisa</Text>
+              {selectedMethod === 'easypaisa' && <Check color="#22c55e" size={24} />}
             </View>
             {selectedMethod === 'easypaisa' && (
               <View style={styles.methodDetails}>
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Account Title:</Text>
                   <Text style={styles.detailValue}>{EASYPAISA_NAME}</Text>
-                  <TouchableOpacity onPress={() => copyToClipboard(EASYPAISA_NAME, 'Name')}>
-                    {copiedField === 'Name' ? (
+                  <TouchableOpacity onPress={() => copyToClipboard(EASYPAISA_NAME, 'EasyPaisa Name')}>
+                    {copiedField === 'EasyPaisa Name' ? (
                       <Check color="#22c55e" size={20} />
                     ) : (
                       <Copy color="#c084fc" size={20} />
@@ -310,8 +335,8 @@ export default function ManualPaymentScreen() {
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Account Number:</Text>
                   <Text style={styles.detailValue}>{EASYPAISA_ACCOUNT}</Text>
-                  <TouchableOpacity onPress={() => copyToClipboard(EASYPAISA_ACCOUNT, 'Account')}>
-                    {copiedField === 'Account' ? (
+                  <TouchableOpacity onPress={() => copyToClipboard(EASYPAISA_ACCOUNT, 'EasyPaisa Account')}>
+                    {copiedField === 'EasyPaisa Account' ? (
                       <Check color="#22c55e" size={20} />
                     ) : (
                       <Copy color="#c084fc" size={20} />
@@ -327,14 +352,14 @@ export default function ManualPaymentScreen() {
         <View style={styles.instructionsCard}>
           <Text style={styles.instructionsTitle}>📋 Payment Instructions</Text>
           <Text style={styles.instructionItem}>1. Transfer ₨{amount} to the account above</Text>
-          <Text style={styles.instructionItem}>2. Take a screenshot of the transaction</Text>
+          <Text style={styles.instructionItem}>2. Take a clear screenshot of the transaction</Text>
           <Text style={styles.instructionItem}>3. Upload the screenshot below</Text>
-          <Text style={styles.instructionItem}>4. Wait for admin approval (24-48 hours)</Text>
+          <Text style={styles.instructionItem}>4. Submit for admin approval</Text>
         </View>
 
         {/* Screenshot Upload */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Upload Payment Proof</Text>
+          <Text style={styles.sectionTitle}>2. Upload Payment Proof</Text>
           
           {screenshot ? (
             <View style={styles.screenshotContainer}>
@@ -351,16 +376,24 @@ export default function ManualPaymentScreen() {
             <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
               <Upload color="#c084fc" size={40} />
               <Text style={styles.uploadButtonText}>Tap to Upload Screenshot</Text>
-              <Text style={styles.uploadButtonSubtext}>JPG, PNG supported </Text>
+              <Text style={styles.uploadButtonSubtext}>JPG, PNG supported</Text>
             </TouchableOpacity>
           )}
         </View>
 
+        {/* Warning Box */}
+        <View style={styles.warningCard}>
+          <AlertCircle color="#f59e0b" size={20} />
+          <Text style={styles.warningText}>
+            Make sure your screenshot clearly shows: transaction amount, date/time, and receiver's name
+          </Text>
+        </View>
+
         {/* Submit Button */}
         <TouchableOpacity
-          style={[styles.submitButton, uploading && styles.submitButtonDisabled]}
+          style={[styles.submitButton, (uploading || !selectedMethod || !screenshot) && styles.submitButtonDisabled]}
           onPress={handleSubmit}
-          disabled={uploading}
+          disabled={uploading || !selectedMethod || !screenshot}
         >
           {uploading ? (
             <ActivityIndicator color="#1e1b4b" />
@@ -371,7 +404,7 @@ export default function ManualPaymentScreen() {
         
         <View style={styles.noteCard}>
           <Text style={styles.noteText}>
-            💡 Your subscription will be activated after admin verification
+            💡 Your subscription will be activated after admin verification (usually within 24 hours)
           </Text>
         </View>
 
@@ -396,7 +429,7 @@ const styles = StyleSheet.create({
   methodCard: { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)' },
   methodCardActive: { borderColor: '#c084fc', borderWidth: 2, backgroundColor: 'rgba(192, 132, 252, 0.1)' },
   methodHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  methodName: { color: 'white', fontSize: 18, fontWeight: '600' },
+  methodName: { color: 'white', fontSize: 18, fontWeight: '600', flex: 1 },
   methodDetails: { marginTop: 16, gap: 12 },
   detailRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   detailLabel: { color: '#c084fc', fontSize: 14, width: 120 },
@@ -417,9 +450,11 @@ const styles = StyleSheet.create({
   },
   changeButton: { backgroundColor: 'rgba(192, 132, 252, 0.2)', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, borderWidth: 1, borderColor: '#c084fc' },
   changeButtonText: { color: '#c084fc', fontSize: 14, fontWeight: '600' },
-  submitButton: { marginHorizontal: 16, backgroundColor: '#c084fc', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginBottom: 16 },
-  submitButtonDisabled: { opacity: 0.6 },
+  warningCard: { marginHorizontal: 16, marginBottom: 24, backgroundColor: 'rgba(245, 158, 11, 0.1)', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.3)', flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  warningText: { color: '#f59e0b', fontSize: 13, lineHeight: 20, flex: 1 },
+  submitButton: { marginHorizontal: 16, backgroundColor: '#c084fc', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginBottom: 16, minHeight: 52, justifyContent: 'center' },
+  submitButtonDisabled: { opacity: 0.5 },
   submitButtonText: { color: '#1e1b4b', fontSize: 18, fontWeight: 'bold' },
   noteCard: { marginHorizontal: 16, backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(59, 130, 246, 0.3)' },
-  noteText: { color: '#3b82f6', fontSize: 12, textAlign: 'center' },
+  noteText: { color: '#3b82f6', fontSize: 12, textAlign: 'center', lineHeight: 18 },
 });

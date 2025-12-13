@@ -1,4 +1,4 @@
-// app/(vendor)/profile.tsx
+// app/(vendor)/profile.tsx - UPDATED TO SYNC WITH vendor_registrations
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -35,16 +35,19 @@ export default function VendorProfile() {
   const { user, signOut } = useAuthStore();
   const { alertConfig, showAlert, Alert } = useCustomAlert();
   
-  const [vendor, setVendor] = useState<any>(null);
+  const [vendorRegistration, setVendorRegistration] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editData, setEditData] = useState({
-    name: '',
+    business_name: '',
     location: '',
     phone: '',
     description: '',
     discount_percentage: 20,
     terms: '',
+    category: 'Restaurant',
   });
+
+  const categories = ['Restaurant', 'Cafe', 'Arcade', 'Clothing', 'Entertainment'];
 
   useEffect(() => {
     loadVendorData();
@@ -54,21 +57,23 @@ export default function VendorProfile() {
     if (!user?.id) return;
 
     try {
+      // Fetch from vendor_registrations table
       const { data, error } = await supabase
-        .from('vendors')
+        .from('vendor_registrations')
         .select('*')
         .eq('owner_id', user.id)
         .single();
 
       if (data && !error) {
-        setVendor(data);
+        setVendorRegistration(data);
         setEditData({
-          name: data.name,
+          business_name: data.business_name,
           location: data.location,
-          phone: user.phone || '',
+          phone: data.phone || user.phone || '',
           description: data.description || '',
           discount_percentage: data.discount_percentage,
           terms: data.terms || '',
+          category: data.category,
         });
       }
     } catch (error) {
@@ -77,23 +82,25 @@ export default function VendorProfile() {
   };
 
   const handleSaveProfile = async () => {
-    if (!vendor?.id) return;
+    if (!vendorRegistration?.id) return;
 
     try {
-      // Update vendor
-      const { error: vendorError } = await supabase
-        .from('vendors')
+      // Update vendor_registrations (will auto-sync to vendors if verified)
+      const { error: regError } = await supabase
+        .from('vendor_registrations')
         .update({
-          name: editData.name,
+          business_name: editData.business_name,
           location: editData.location,
           description: editData.description,
           discount_percentage: editData.discount_percentage,
           discount_text: `${editData.discount_percentage}% OFF`,
           terms: editData.terms,
+          category: editData.category,
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', vendor.id);
+        .eq('id', vendorRegistration.id);
 
-      if (vendorError) throw vendorError;
+      if (regError) throw regError;
 
       // Update user phone
       const { error: userError } = await supabase
@@ -121,9 +128,23 @@ export default function VendorProfile() {
   };
 
   const handleToggleActive = async () => {
-    if (!vendor?.id) return;
+    if (!vendorRegistration?.id || !vendorRegistration.verified) {
+      showAlert({
+        type: 'warning',
+        title: 'Cannot Change Status',
+        message: 'Your account must be verified by admin first',
+      });
+      return;
+    }
 
-    const newStatus = !vendor.active;
+    // Fetch current vendor status
+    const { data: vendorData } = await supabase
+      .from('vendors')
+      .select('active')
+      .eq('id', vendorRegistration.id)
+      .single();
+
+    const newStatus = !vendorData?.active;
 
     showAlert({
       type: 'warning',
@@ -139,7 +160,7 @@ export default function VendorProfile() {
               const { error } = await supabase
                 .from('vendors')
                 .update({ active: newStatus })
-                .eq('id', vendor.id);
+                .eq('id', vendorRegistration.id);
 
               if (error) throw error;
 
@@ -182,7 +203,7 @@ export default function VendorProfile() {
     });
   };
 
-  if (!vendor) {
+  if (!vendorRegistration) {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>Loading...</Text>
@@ -190,24 +211,24 @@ export default function VendorProfile() {
     );
   }
 
+  const getStatusInfo = () => {
+    if (vendorRegistration.rejected) {
+      return { text: 'Rejected', color: '#ef4444', bgColor: 'rgba(239, 68, 68, 0.2)' };
+    }
+    if (!vendorRegistration.verified) {
+      return { text: 'Pending Approval', color: '#f59e0b', bgColor: 'rgba(245, 158, 11, 0.2)' };
+    }
+    return { text: 'Verified', color: '#22c55e', bgColor: 'rgba(34, 197, 94, 0.2)' };
+  };
+
+  const statusInfo = getStatusInfo();
+
   const menuItems = [
     {
       icon: Edit2,
       label: 'Edit Profile',
       onPress: () => setShowEditModal(true),
-    },
-    {
-      icon: Settings,
-      label: 'Vendor Status',
-      onPress: handleToggleActive,
-      rightComponent: (
-        <Switch
-          value={vendor.active}
-          onValueChange={handleToggleActive}
-          trackColor={{ false: '#767577', true: '#22c55e' }}
-          thumbColor={vendor.active ? '#fff' : '#f4f3f4'}
-        />
-      ),
+      disabled: !vendorRegistration.verified,
     },
     {
       icon: HelpCircle,
@@ -233,13 +254,20 @@ export default function VendorProfile() {
             <Store color="#1e1b4b" size={48} />
           </View>
 
-          <Text style={styles.vendorName}>{vendor.name}</Text>
+          <Text style={styles.vendorName}>{vendorRegistration.business_name}</Text>
           <Text style={styles.vendorEmail}>{user?.email}</Text>
 
-          <View style={[styles.statusBadge, vendor.active ? styles.statusBadgeActive : styles.statusBadgeInactive]}>
-            <View style={[styles.statusDot, { backgroundColor: vendor.active ? '#22c55e' : '#ef4444' }]} />
-            <Text style={styles.statusText}>{vendor.active ? 'Active' : 'Inactive'}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: statusInfo.bgColor }]}>
+            <View style={[styles.statusDot, { backgroundColor: statusInfo.color }]} />
+            <Text style={[styles.statusText, { color: statusInfo.color }]}>{statusInfo.text}</Text>
           </View>
+
+          {vendorRegistration.rejected && vendorRegistration.rejection_reason && (
+            <View style={styles.rejectionBox}>
+              <Text style={styles.rejectionTitle}>Rejection Reason:</Text>
+              <Text style={styles.rejectionText}>{vendorRegistration.rejection_reason}</Text>
+            </View>
+          )}
         </View>
 
         {/* Business Info */}
@@ -251,7 +279,7 @@ export default function VendorProfile() {
               <Tag color="#c084fc" size={20} />
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Category</Text>
-                <Text style={styles.infoValue}>{vendor.category}</Text>
+                <Text style={styles.infoValue}>{vendorRegistration.category}</Text>
               </View>
             </View>
 
@@ -259,7 +287,7 @@ export default function VendorProfile() {
               <MapPin color="#c084fc" size={20} />
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Location</Text>
-                <Text style={styles.infoValue}>{vendor.location}</Text>
+                <Text style={styles.infoValue}>{vendorRegistration.location}</Text>
               </View>
             </View>
 
@@ -267,7 +295,7 @@ export default function VendorProfile() {
               <Phone color="#c084fc" size={20} />
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Phone</Text>
-                <Text style={styles.infoValue}>{user?.phone || 'Not set'}</Text>
+                <Text style={styles.infoValue}>{vendorRegistration.phone || 'Not set'}</Text>
               </View>
             </View>
 
@@ -275,7 +303,7 @@ export default function VendorProfile() {
               <Tag color="#c084fc" size={20} />
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Discount</Text>
-                <Text style={styles.infoValue}>{vendor.discount_text}</Text>
+                <Text style={styles.infoValue}>{vendorRegistration.discount_text}</Text>
               </View>
             </View>
           </View>
@@ -289,16 +317,19 @@ export default function VendorProfile() {
               return (
                 <TouchableOpacity
                   key={index}
-                  style={styles.menuItem}
+                  style={[styles.menuItem, item.disabled && styles.menuItemDisabled]}
                   onPress={item.onPress}
+                  disabled={item.disabled}
                 >
                   <View style={styles.menuItemLeft}>
                     <View style={styles.menuIconContainer}>
-                      <Icon color="#f59e0b" size={20} />
+                      <Icon color={item.disabled ? '#64748b' : '#f59e0b'} size={20} />
                     </View>
-                    <Text style={styles.menuItemText}>{item.label}</Text>
+                    <Text style={[styles.menuItemText, item.disabled && styles.menuItemTextDisabled]}>
+                      {item.label}
+                    </Text>
                   </View>
-                  {item.rightComponent || <ChevronRight color="#c084fc" size={20} />}
+                  <ChevronRight color={item.disabled ? '#64748b' : '#c084fc'} size={20} />
                 </TouchableOpacity>
               );
             })}
@@ -333,11 +364,28 @@ export default function VendorProfile() {
                 <Text style={styles.inputLabel}>Business Name</Text>
                 <TextInput
                   style={styles.input}
-                  value={editData.name}
-                  onChangeText={(text) => setEditData({ ...editData, name: text })}
+                  value={editData.business_name}
+                  onChangeText={(text) => setEditData({ ...editData, business_name: text })}
                   placeholder="Enter business name"
                   placeholderTextColor="#c084fc"
                 />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Category</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
+                  {categories.map((cat) => (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[styles.categoryChip, editData.category === cat && styles.categoryChipActive]}
+                      onPress={() => setEditData({ ...editData, category: cat })}
+                    >
+                      <Text style={[styles.categoryText, editData.category === cat && styles.categoryTextActive]}>
+                        {cat}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
               </View>
 
               <View style={styles.inputGroup}>
@@ -427,10 +475,11 @@ const styles = StyleSheet.create({
   vendorName: { color: 'white', fontSize: 24, fontWeight: 'bold', marginBottom: 4 },
   vendorEmail: { color: '#c084fc', fontSize: 14, marginBottom: 12 },
   statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, gap: 4 },
-  statusBadgeActive: { backgroundColor: 'rgba(34, 197, 94, 0.2)' },
-  statusBadgeInactive: { backgroundColor: 'rgba(239, 68, 68, 0.2)' },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
-  statusText: { color: 'white', fontSize: 12, fontWeight: '600' },
+  statusText: { fontSize: 12, fontWeight: '600' },
+  rejectionBox: { marginTop: 16, backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: 12, borderRadius: 8, width: '100%', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.3)' },
+  rejectionTitle: { color: '#ef4444', fontSize: 12, fontWeight: '600', marginBottom: 4 },
+  rejectionText: { color: '#ef4444', fontSize: 12, lineHeight: 18 },
   section: { marginBottom: 24 },
   sectionTitle: { color: 'white', fontSize: 18, fontWeight: '600', marginBottom: 12 },
   infoCard: { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)', gap: 16 },
@@ -440,9 +489,11 @@ const styles = StyleSheet.create({
   infoValue: { color: 'white', fontSize: 16 },
   menuContainer: { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)' },
   menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.1)' },
+  menuItemDisabled: { opacity: 0.5 },
   menuItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   menuIconContainer: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(245, 158, 11, 0.2)', justifyContent: 'center', alignItems: 'center' },
   menuItemText: { color: 'white', fontSize: 16 },
+  menuItemTextDisabled: { color: '#64748b' },
   logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(239, 68, 68, 0.2)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.3)', gap: 8 },
   logoutButtonText: { color: '#ef4444', fontSize: 16, fontWeight: '600' },
   modalContainer: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
@@ -456,6 +507,11 @@ const styles = StyleSheet.create({
   inputLabel: { color: 'white', fontSize: 14, fontWeight: '600', marginBottom: 8 },
   input: { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12, padding: 16, color: 'white', fontSize: 16 },
   textArea: { height: 100, textAlignVertical: 'top' },
+  categoriesScroll: { flexGrow: 0 },
+  categoryChip: { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 8 },
+  categoryChipActive: { backgroundColor: '#c084fc', borderColor: '#c084fc' },
+  categoryText: { color: 'white', fontSize: 14 },
+  categoryTextActive: { color: '#1e1b4b', fontWeight: '600' },
   saveButton: { backgroundColor: '#f59e0b', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 10 },
   saveButtonText: { color: '#1e1b4b', fontSize: 16, fontWeight: 'bold' },
 });

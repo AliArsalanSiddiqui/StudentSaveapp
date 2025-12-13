@@ -9,6 +9,7 @@
     "scheme": "studentsave",
 
     "splash": {
+      "image": "./assets/splash-icon.png",
       "backgroundColor": "#1e1b4b",
       "resizeMode": "contain"
     },

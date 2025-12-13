@@ -1,4 +1,4 @@
-// app/(auth)/vendor-login.tsx - WITH TEST DUMMY DATA
+// app/(auth)/vendor-login.tsx - UPDATED WITH PROPER VENDOR REGISTRATION FLOW
 import React, { useState } from 'react';
 import {
   View,
@@ -31,88 +31,11 @@ export default function VendorLogin() {
   const [phone, setPhone] = useState('');
   const [location, setLocation] = useState('');
   const [category, setCategory] = useState('Restaurant');
+  const [description, setDescription] = useState('');
+  const [discountPercentage, setDiscountPercentage] = useState('20');
+  const [terms, setTerms] = useState('');
 
   const categories = ['Restaurant', 'Cafe', 'Arcade', 'Clothing', 'Entertainment'];
-
-  const handleSkipLogin = async () => {
-    try {
-      // Create test vendor data in Supabase
-      const testVendorId = 'test-vendor-' + Date.now();
-      const testUserId = 'test-user-' + Date.now();
-      
-      // First, create test user in users table
-      const { error: userError } = await supabase
-        .from('users')
-        .insert({
-          id: testUserId,
-          email: 'testvendor@example.com',
-          name: 'Test Vendor Owner',
-          phone: '+92 300 1234567',
-          role: 'vendor',
-          verified: true,
-        });
-
-      if (userError) {
-        console.log('User already exists or error:', userError);
-      }
-
-      // Then create test vendor
-      const { error: vendorError } = await supabase
-        .from('vendors')
-        .insert({
-          id: testVendorId,
-          owner_id: testUserId,
-          name: 'Test Pizza Palace',
-          category: 'Restaurant',
-          description: 'The best pizza in town! Fresh ingredients, authentic recipes, and amazing taste.',
-          discount_percentage: 25,
-          discount_text: '25% OFF',
-          logo_url: '🍕',
-          location: 'Gulshan-e-Iqbal, Block 13-D, Karachi',
-          rating: 4.5,
-          total_reviews: 127,
-          opening_hours: JSON.stringify({
-            monday: '11:00 AM - 11:00 PM',
-            tuesday: '11:00 AM - 11:00 PM',
-            wednesday: '11:00 AM - 11:00 PM',
-            thursday: '11:00 AM - 11:00 PM',
-            friday: '11:00 AM - 12:00 AM',
-            saturday: '11:00 AM - 12:00 AM',
-            sunday: '11:00 AM - 11:00 PM',
-          }),
-          terms: 'Valid on dine-in only. Cannot be combined with other offers. Student ID required.',
-          active: true,
-          qr_code: `VENDOR_${testVendorId}_${Date.now()}`,
-        });
-
-      if (vendorError) {
-        console.log('Vendor already exists or error:', vendorError);
-      }
-
-      // Create mock user object for auth store
-      const mockVendorUser = {
-        id: testUserId,
-        email: 'testvendor@example.com',
-        name: 'Test Vendor Owner',
-        phone: '+92 300 1234567',
-        role: 'vendor' as const,
-        verified: true,
-        created_at: new Date().toISOString(),
-      };
-      
-      const { setUser } = require('../../store/authStore').useAuthStore.getState();
-      setUser(mockVendorUser);
-      
-      router.replace('/(vendor)' as any);
-    } catch (error) {
-      console.error('Skip login error:', error);
-      showAlert({
-        type: 'error',
-        title: 'Error',
-        message: 'Failed to create test vendor. Please try again.',
-      });
-    }
-  };
 
   const handleAuth = async () => {
     if (!email.trim()) {
@@ -124,9 +47,9 @@ export default function VendorLogin() {
 
     try {
       if (isSignUp) {
-        // ============== SIGN UP FLOW ==============
+        // ============== REGISTRATION FLOW ==============
         if (!businessName.trim() || !ownerName.trim() || !phone.trim() || !location.trim()) {
-          showAlert({ type: 'error', title: 'Error', message: 'Please fill all fields' });
+          showAlert({ type: 'error', title: 'Error', message: 'Please fill all required fields' });
           setLoading(false);
           return;
         }
@@ -137,26 +60,21 @@ export default function VendorLogin() {
           return;
         }
 
-        console.log('Starting vendor signup...');
-
         // Step 1: Create auth user
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: email.trim(),
           password: password.trim(),
           options: {
             emailRedirectTo: undefined,
-            data: {},
+            data: {
+              name: ownerName.trim(),
+              role: 'vendor',
+            },
           },
         });
 
-        if (authError) {
-          console.error('Auth signup error:', authError);
-          throw authError;
-        }
-
-        if (!authData.user) {
-          throw new Error('User creation failed - no user returned');
-        }
+        if (authError) throw authError;
+        if (!authData.user) throw new Error('User creation failed');
 
         console.log('Auth user created:', authData.user.id);
 
@@ -170,7 +88,7 @@ export default function VendorLogin() {
             name: ownerName.trim(),
             phone: phone.trim(),
             role: 'vendor',
-            verified: true,
+            verified: false, // Not verified until admin approves
           })
           .eq('id', authData.user.id);
 
@@ -178,54 +96,54 @@ export default function VendorLogin() {
           console.error('User profile update error:', updateError);
         }
 
-        console.log('User profile updated');
+        // Step 4: Create vendor registration (pending approval)
+        const discountValue = parseInt(discountPercentage) || 20;
+        const { error: registrationError } = await supabase
+          .from('vendor_registrations')
+          .insert({
+            owner_id: authData.user.id,
+            business_name: businessName.trim(),
+            owner_name: ownerName.trim(),
+            email: email.trim(),
+            phone: phone.trim(),
+            location: location.trim(),
+            category: category,
+            description: description.trim() || null,
+            discount_percentage: discountValue,
+            discount_text: `${discountValue}% OFF`,
+            terms: terms.trim() || 'Valid for students only. ID required.',
+            verified: false,
+          });
 
-        // Step 4: Create vendor profile
-        const { error: vendorError } = await supabase.from('vendors').insert({
-          owner_id: authData.user.id,
-          name: businessName.trim(),
-          category: category,
-          location: location.trim(),
-          discount_percentage: 20,
-          discount_text: '20% OFF',
-          qr_code: `VENDOR_${authData.user.id}_${Date.now()}`,
-          active: false,
-          rating: 0,
-          total_reviews: 0,
-        });
-
-        if (vendorError) {
-          console.error('Vendor profile error:', vendorError);
-          throw new Error('Failed to create vendor profile. Please contact support.');
+        if (registrationError) {
+          console.error('Registration error:', registrationError);
+          // Clean up auth user if registration fails
+          await supabase.auth.admin.deleteUser(authData.user.id);
+          throw new Error('Failed to create vendor registration. Please try again.');
         }
 
-        console.log('Vendor profile created successfully');
-
-        // Step 5: Sign out and back in
+        // Step 5: Sign out immediately (they can't use the account until verified)
         await supabase.auth.signOut();
 
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password: password.trim(),
-        });
-
-        if (signInError) {
-          console.error('Auto sign-in error:', signInError);
-          throw new Error('Account created but auto-login failed. Please login manually.');
-        }
-
-        console.log('Auto sign-in successful');
+        // Clear all form fields
+        setIsSignUp(false);
+        setEmail('');
+        setPassword('');
+        setBusinessName('');
+        setOwnerName('');
+        setPhone('');
+        setLocation('');
+        setDescription('');
+        setTerms('');
 
         showAlert({
           type: 'success',
-          title: 'Account Created! 🎉',
-          message: 'Your vendor account has been created successfully. Pending admin approval to go live.',
+          title: 'Registration Submitted! 📝',
+          message: 'Your vendor registration is pending admin approval. You will be notified via email once verified (usually within 24-48 hours). Please do NOT attempt to login until you receive verification confirmation.',
           buttons: [
             {
-              text: 'Continue',
-              onPress: () => {
-                router.replace('/(vendor)' as any);
-              },
+              text: 'OK',
+              onPress: () => {},
               style: 'default',
             },
           ],
@@ -239,25 +157,58 @@ export default function VendorLogin() {
           return;
         }
 
-        console.log('Attempting vendor login...');
-
+        // Step 1: Authenticate
         const { data, error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password: password.trim(),
         });
 
-        if (error) {
-          console.error('Login error:', error);
-          throw error;
+        if (error) throw error;
+        if (!data.user) throw new Error('Login failed');
+
+        // Step 2: Check if vendor registration exists and is verified
+        const { data: registration, error: regError } = await supabase
+          .from('vendor_registrations')
+          .select('*')
+          .eq('owner_id', data.user.id)
+          .single();
+
+        if (regError || !registration) {
+          await supabase.auth.signOut();
+          showAlert({
+            type: 'error',
+            title: 'No Registration Found',
+            message: 'No vendor registration found for this account. Please sign up first.',
+          });
+          setLoading(false);
+          return;
         }
 
-        if (!data.user) {
-          throw new Error('Login failed - no user returned');
+        // Check if rejected
+        if (registration.rejected) {
+          await supabase.auth.signOut();
+          showAlert({
+            type: 'error',
+            title: 'Registration Rejected',
+            message: registration.rejection_reason || 'Your registration was rejected by admin. Please contact support.',
+          });
+          setLoading(false);
+          return;
         }
 
-        console.log('Login successful:', data.user.id);
+        // Check if verified
+        if (!registration.verified) {
+          await supabase.auth.signOut();
+          showAlert({
+            type: 'warning',
+            title: 'Pending Verification',
+            message: 'Your vendor registration is still pending admin approval. Please wait for verification email.',
+          });
+          setLoading(false);
+          return;
+        }
 
-        // Fetch user profile to verify role
+        // Step 3: Verify user role
         const { data: userProfile, error: profileError } = await supabase
           .from('users')
           .select('*')
@@ -265,25 +216,22 @@ export default function VendorLogin() {
           .single();
 
         if (profileError || !userProfile) {
-          console.error('Profile fetch error:', profileError);
+          await supabase.auth.signOut();
           throw new Error('Failed to load user profile');
         }
 
-        console.log('User profile loaded:', userProfile.role);
-
-        // Verify user is a vendor
         if (userProfile.role !== 'vendor') {
           await supabase.auth.signOut();
           showAlert({
             type: 'error',
             title: 'Invalid Account',
-            message: 'This account is not registered as a vendor. Please use the student login.',
+            message: 'This account is not registered as a vendor.',
           });
           setLoading(false);
           return;
         }
 
-        // Success - navigate to vendor dashboard
+        // Success - navigate to vendor dashboard (layout will handle verification check)
         router.replace('/(vendor)' as any);
       }
     } catch (error: any) {
@@ -329,7 +277,7 @@ export default function VendorLogin() {
               {isSignUp && (
                 <>
                   <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Business Name</Text>
+                    <Text style={styles.label}>Business Name *</Text>
                     <TextInput
                       style={styles.input}
                       placeholder="Enter business name"
@@ -342,7 +290,7 @@ export default function VendorLogin() {
                   </View>
 
                   <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Owner Name</Text>
+                    <Text style={styles.label}>Owner Name *</Text>
                     <TextInput
                       style={styles.input}
                       placeholder="Enter owner name"
@@ -355,7 +303,7 @@ export default function VendorLogin() {
                   </View>
 
                   <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Phone Number</Text>
+                    <Text style={styles.label}>Phone Number *</Text>
                     <View style={styles.inputWrapper}>
                       <Phone color="#c084fc" size={20} style={styles.inputIcon} />
                       <TextInput
@@ -371,7 +319,7 @@ export default function VendorLogin() {
                   </View>
 
                   <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Location</Text>
+                    <Text style={styles.label}>Location *</Text>
                     <View style={styles.inputWrapper}>
                       <MapPin color="#c084fc" size={20} style={styles.inputIcon} />
                       <TextInput
@@ -387,7 +335,7 @@ export default function VendorLogin() {
                   </View>
 
                   <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Category</Text>
+                    <Text style={styles.label}>Category *</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
                       {categories.map((cat) => (
                         <TouchableOpacity
@@ -403,11 +351,52 @@ export default function VendorLogin() {
                       ))}
                     </ScrollView>
                   </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Description (Optional)</Text>
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      placeholder="Describe your business"
+                      placeholderTextColor="#c084fc"
+                      value={description}
+                      onChangeText={setDescription}
+                      multiline
+                      numberOfLines={3}
+                      editable={!loading}
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Discount Percentage *</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="20"
+                      placeholderTextColor="#c084fc"
+                      value={discountPercentage}
+                      onChangeText={setDiscountPercentage}
+                      keyboardType="number-pad"
+                      editable={!loading}
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>Terms & Conditions (Optional)</Text>
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      placeholder="Valid for students only. ID required."
+                      placeholderTextColor="#c084fc"
+                      value={terms}
+                      onChangeText={setTerms}
+                      multiline
+                      numberOfLines={3}
+                      editable={!loading}
+                    />
+                  </View>
                 </>
               )}
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Business Email</Text>
+                <Text style={styles.label}>Business Email *</Text>
                 <View style={styles.inputWrapper}>
                   <Mail color="#c084fc" size={20} style={styles.inputIcon} />
                   <TextInput
@@ -425,7 +414,7 @@ export default function VendorLogin() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Password</Text>
+                <Text style={styles.label}>Password *</Text>
                 <TextInput
                   style={styles.input}
                   placeholder={isSignUp ? 'Create password (min 6 characters)' : 'Enter password'}
@@ -444,7 +433,7 @@ export default function VendorLogin() {
                 disabled={loading}
               >
                 <Text style={styles.submitButtonText}>
-                  {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
+                  {loading ? 'Please wait...' : isSignUp ? 'Submit Registration' : 'Sign In'}
                 </Text>
               </TouchableOpacity>
 
@@ -457,6 +446,8 @@ export default function VendorLogin() {
                   setOwnerName('');
                   setPhone('');
                   setLocation('');
+                  setDescription('');
+                  setTerms('');
                 }}
                 disabled={loading}
               >
@@ -464,17 +455,12 @@ export default function VendorLogin() {
                   {isSignUp ? 'Already registered? Sign In' : 'New vendor? Register Now'}
                 </Text>
               </TouchableOpacity>
-
-              {/* Skip Login for Testing */}
-              <TouchableOpacity style={styles.skipButton} onPress={handleSkipLogin}>
-                <Text style={styles.skipButtonText}>⚡ Skip Login (Testing)</Text>
-              </TouchableOpacity>
             </View>
 
             <View style={styles.infoBox}>
               <Text style={styles.infoText}>
                 {isSignUp
-                  ? '🏪 Your account will be active immediately. Admin approval required to go live.'
+                  ? '📝 Your registration will be reviewed by our team within 24-48 hours'
                   : '🔐 Your data is secure and encrypted'}
               </Text>
             </View>
@@ -503,6 +489,7 @@ const styles = StyleSheet.create({
   inputIcon: { position: 'absolute', left: 16, top: 18, zIndex: 1 },
   input: { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12, padding: 16, color: 'white', fontSize: 16 },
   inputWithIcon: { paddingLeft: 48 },
+  textArea: { height: 100, textAlignVertical: 'top' },
   categoriesScroll: { flexGrow: 0 },
   categoryChip: { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 8 },
   categoryChipActive: { backgroundColor: '#c084fc', borderColor: '#c084fc' },
@@ -513,8 +500,6 @@ const styles = StyleSheet.create({
   submitButtonText: { color: '#1e1b4b', fontSize: 18, fontWeight: 'bold' },
   toggleButton: { alignItems: 'center', paddingVertical: 8 },
   toggleButtonText: { color: '#c084fc', fontSize: 14, fontWeight: '600' },
-  skipButton: { backgroundColor: 'rgba(245, 158, 11, 0.2)', borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.4)', paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 8 },
-  skipButtonText: { color: '#f59e0b', fontSize: 14, fontWeight: '600' },
   infoBox: { backgroundColor: 'rgba(192, 132, 252, 0.1)', borderWidth: 1, borderColor: 'rgba(192, 132, 252, 0.3)', borderRadius: 12, padding: 16, marginTop: 24 },
   infoText: { color: '#c084fc', fontSize: 14, textAlign: 'center', lineHeight: 20 },
 });
