@@ -1,4 +1,4 @@
-// app/_layout.tsx
+// app/_layout.tsx - FIXED ROLE-BASED NAVIGATION
 import '../lib/polyfills';
 import { useEffect, useState, useCallback } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
@@ -11,7 +11,6 @@ import { ErrorBoundary } from 'react-error-boundary';
 import SplashScreen from '@/components/SplashScreen';
 import * as ExpoSplashScreen from 'expo-splash-screen';
 
-// Keep the splash screen visible while we fetch resources
 ExpoSplashScreen.preventAutoHideAsync();
 
 function ErrorFallback({ error, resetErrorBoundary }: any) {
@@ -38,7 +37,6 @@ export default function RootLayout() {
   const segments = useSegments();
 
   useEffect(() => {
-    // Hide Expo splash screen immediately
     ExpoSplashScreen.hideAsync();
     initializeAuth();
   }, []);
@@ -112,6 +110,7 @@ export default function RootLayout() {
         .single();
 
       if (data && !error) {
+        console.log('User profile loaded:', { id: data.id, role: data.role });
         setUser(data);
       } else if (error) {
         console.error('User profile error:', error);
@@ -123,32 +122,63 @@ export default function RootLayout() {
     }
   };
 
-  // Handle navigation after both splash and auth are ready
+  // Handle navigation with role-based routing
   useEffect(() => {
     if (!isReady || showSplash) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const inStudentGroup = segments[0] === '(student)';
+    const inVendorGroup = segments[0] === '(vendor)';
     
+    console.log('Navigation check:', {
+      hasUser: !!user,
+      userRole: user?.role,
+      currentSegment: segments[0],
+      inAuthGroup,
+      inStudentGroup,
+      inVendorGroup,
+    });
+
+    // Not logged in - redirect to auth
     if (!user && !inAuthGroup) {
+      console.log('Not logged in, redirecting to welcome');
       router.replace('/(auth)/welcome');
       return;
     }
 
+    // Logged in - check role-based access
     if (user && inAuthGroup) {
+      console.log('Logged in, redirecting based on role:', user.role);
+      
       if (user.role === 'student') {
         router.replace('/(student)');
       } else if (user.role === 'vendor') {
+        router.replace('/(vendor)' as any);
+      } else {
+        // Unknown role, sign out
+        console.warn('Unknown role:', user.role);
+        useAuthStore.getState().signOut();
+        router.replace('/(auth)/welcome');
+      }
+      return;
+    }
+
+    // Prevent role mismatches
+    if (user) {
+      if (user.role === 'student' && inVendorGroup) {
+        console.log('Student accessing vendor area, redirecting');
+        router.replace('/(student)');
+      } else if (user.role === 'vendor' && inStudentGroup) {
+        console.log('Vendor accessing student area, redirecting');
         router.replace('/(vendor)' as any);
       }
     }
   }, [user, isReady, segments, showSplash]);
 
-  // Show custom splash screen ONLY
   if (showSplash) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;
   }
 
-  // Show loading screen ONLY
   if (!isReady) {
     return (
       <View style={styles.loadingContainer}>
@@ -158,7 +188,6 @@ export default function RootLayout() {
     );
   }
 
-  // Only render navigation after splash is done AND auth is ready
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <GestureHandlerRootView style={{ flex: 1 }}>

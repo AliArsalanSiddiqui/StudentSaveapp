@@ -1,3 +1,4 @@
+// app/(student)/discount-claimed.tsx - FIXED VERIFICATION CODE DISPLAY
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -5,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -29,41 +31,62 @@ export default function DiscountClaimedScreen() {
     time: string;
     verificationCode: string;
   } | null>(null);
+  
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // If transactionId is passed (from history), use it directly
-    const transactionId = params.transactionId as string;
-    const transactionTime = params.transactionTime as string;
-    
-    if (transactionId && transactionTime) {
-      // Coming from history with transaction details
-      const redeemedDate = new Date(transactionTime);
-      setTransactionData({
-        date: format(redeemedDate, 'MMM dd, yyyy'),
-        time: format(redeemedDate, 'h:mm a'),
-        verificationCode: transactionId.substring(0, 8).toUpperCase(),
-      });
-    } else if (vendorId) {
-      // Coming from QR scan, fetch latest transaction
-      fetchLatestTransaction();
-    } else {
-      // Fallback
-      const now = new Date();
-      setTransactionData({
-        date: format(now, 'MMM dd, yyyy'),
-        time: format(now, 'h:mm a'),
-        verificationCode: `VD-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-      });
-    }
+    loadTransactionData();
   }, []);
 
+  const loadTransactionData = async () => {
+    try {
+      // If transactionId is passed (from history), use it directly
+      const transactionId = params.transactionId as string;
+      const transactionTime = params.transactionTime as string;
+      
+      if (transactionId && transactionTime) {
+        // Coming from history with transaction details
+        console.log('Loading from history:', { transactionId, transactionTime });
+        const redeemedDate = new Date(transactionTime);
+        setTransactionData({
+          date: format(redeemedDate, 'MMM dd, yyyy'),
+          time: format(redeemedDate, 'h:mm a'),
+          verificationCode: transactionId.substring(0, 8).toUpperCase(),
+        });
+        setLoading(false);
+      } else if (vendorId && user?.id) {
+        // Coming from QR scan, fetch latest transaction
+        console.log('Loading latest transaction for vendor:', vendorId);
+        await fetchLatestTransaction();
+      } else {
+        // Fallback
+        console.log('Using fallback data');
+        const now = new Date();
+        setTransactionData({
+          date: format(now, 'MMM dd, yyyy'),
+          time: format(now, 'h:mm a'),
+          verificationCode: `VD-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+        });
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('Error loading transaction data:', error);
+      setLoading(false);
+    }
+  };
+
   const fetchLatestTransaction = async () => {
-    if (!user?.id || !vendorId) return;
+    if (!user?.id || !vendorId) {
+      setLoading(false);
+      return;
+    }
 
     try {
       // Get today's date at midnight for comparison
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+
+      console.log('Fetching transaction:', { userId: user.id, vendorId, today: today.toISOString() });
 
       // Fetch the most recent transaction for this vendor today
       const { data, error } = await supabase
@@ -76,7 +99,17 @@ export default function DiscountClaimedScreen() {
         .limit(1)
         .single();
 
-      if (data && !error) {
+      if (error) {
+        console.error('Transaction fetch error:', error);
+        // Use fallback if not found
+        const now = new Date();
+        setTransactionData({
+          date: format(now, 'MMM dd, yyyy'),
+          time: format(now, 'h:mm a'),
+          verificationCode: `VD-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+        });
+      } else if (data) {
+        console.log('Transaction found:', data.id);
         const redeemedDate = new Date(data.redeemed_at);
         setTransactionData({
           date: format(redeemedDate, 'MMM dd, yyyy'),
@@ -93,13 +126,24 @@ export default function DiscountClaimedScreen() {
         time: format(now, 'h:mm a'),
         verificationCode: `VD-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
       });
+    } finally {
+      setLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#c084fc" />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
 
   if (!transactionData) {
     return (
       <View style={styles.container}>
-        <Text style={styles.loadingText}>Loading...</Text>
+        <Text style={styles.errorText}>Unable to load transaction data</Text>
       </View>
     );
   }
@@ -149,7 +193,7 @@ export default function DiscountClaimedScreen() {
               <Text style={styles.vendorName}>{vendorName}</Text>
               <View style={styles.locationRow}>
                 <Store color="#c084fc" size={14} />
-                <Text style={styles.locationText}>{vendorLocation} </Text>
+                <Text style={styles.locationText}>{vendorLocation}</Text>
               </View>
             </View>
           </View>
@@ -175,11 +219,14 @@ export default function DiscountClaimedScreen() {
             </View>
           </View>
 
-          {/* Verification Code */}
+          {/* Verification Code - EMPHASIZED */}
           <View style={styles.verificationSection}>
-            <Text style={styles.verificationLabel}>Verification Code</Text>
+            <Text style={styles.verificationLabel}>🔐 Verification Code</Text>
             <Text style={styles.verificationCode}>
               {transactionData.verificationCode}
+            </Text>
+            <Text style={styles.verificationHint}>
+              Show this code to the vendor
             </Text>
           </View>
         </View>
@@ -188,8 +235,9 @@ export default function DiscountClaimedScreen() {
         <View style={styles.instructionsCard}>
           <Text style={styles.instructionsTitle}>📋 Next Steps:</Text>
           <Text style={styles.instructionItem}>1. Show this screen to the vendor</Text>
-          <Text style={styles.instructionItem}>2. Complete your purchase</Text>
-          <Text style={styles.instructionItem}>3. Enjoy your discount!</Text>
+          <Text style={styles.instructionItem}>2. Vendor will verify the code above</Text>
+          <Text style={styles.instructionItem}>3. Complete your purchase</Text>
+          <Text style={styles.instructionItem}>4. Enjoy your discount!</Text>
         </View>
 
         {/* Action Buttons */}
@@ -225,8 +273,19 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 50
   },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#1e1b4b',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   loadingText: {
     color: 'white',
+    fontSize: 16,
+    marginTop: 16,
+  },
+  errorText: {
+    color: '#ef4444',
     fontSize: 16,
     textAlign: 'center',
     marginTop: 100,
@@ -368,25 +427,32 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   verificationSection: {
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: 'rgba(192, 132, 252, 0.1)',
-    borderRadius: 12,
+    marginTop: 20,
+    padding: 20,
+    backgroundColor: 'rgba(192, 132, 252, 0.15)',
+    borderRadius: 16,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(192, 132, 252, 0.3)',
+    borderWidth: 2,
+    borderColor: '#c084fc',
   },
   verificationLabel: {
     color: '#c084fc',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 12,
   },
   verificationCode: {
     color: 'white',
-    fontSize: 24,
+    fontSize: 40,
     fontWeight: 'bold',
-    letterSpacing: 2,
+    letterSpacing: 6,
+    fontFamily: 'monospace',
+    marginBottom: 8,
+  },
+  verificationHint: {
+    color: '#c084fc',
+    fontSize: 12,
+    fontStyle: 'italic',
   },
   instructionsCard: {
     backgroundColor: 'rgba(192, 132, 252, 0.1)',

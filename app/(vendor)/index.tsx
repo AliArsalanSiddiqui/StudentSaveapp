@@ -1,4 +1,4 @@
-// app/(vendor)/index.tsx - ENHANCED WITH REAL-TIME SCAN NOTIFICATIONS
+// app/(vendor)/index.tsx - WITH VERIFICATION CODE DISPLAY
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -11,7 +11,7 @@ import {
   Image
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Store, TrendingUp, Users, Award, Bell, CheckCircle, Clock } from 'lucide-react-native';
+import { Store, TrendingUp, Users, Award, Bell, CheckCircle, Clock, Shield } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { format } from 'date-fns';
@@ -330,18 +330,18 @@ export default function VendorHome() {
       >
         {/* Vendor Info */}
         {vendor && (
-        <View style={styles.vendorCard}>
-          <View style={styles.logoContainer}>
-          {vendor.logo_url ? (
-            <Image
-              source={{ uri: vendor.logo_url }}
-              style={styles.vendorImage}
-              resizeMode="contain"
-            />
-          ) : (
-            <Text style={styles.vendorLogo}>🏪</Text>
-          )}
-      </View>
+          <View style={styles.vendorCard}>
+            <View style={styles.logoContainer}>
+              {vendor.logo_url ? (
+                <Image
+                  source={{ uri: vendor.logo_url }}
+                  style={styles.vendorImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Text style={styles.vendorLogo}>🏪</Text>
+              )}
+            </View>
             <Text style={styles.vendorName}>{vendor.name}</Text>
             <View style={styles.statusBadge}>
               <View
@@ -392,9 +392,15 @@ export default function VendorHome() {
           </View>
         </View>
 
-        {/* Recent Scans */}
+        {/* Recent Scans with Verification Codes */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Scans</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Scans</Text>
+            <View style={styles.verificationBadge}>
+              <Shield color="#22c55e" size={16} />
+              <Text style={styles.verificationBadgeText}>Verify Codes</Text>
+            </View>
+          </View>
           
           {recentScans.length === 0 ? (
             <View style={styles.emptyState}>
@@ -417,15 +423,25 @@ export default function VendorHome() {
                         {format(new Date(scan.redeemed_at), 'MMM dd, h:mm a')}
                       </Text>
                     </View>
-                  </View>
-                  <View style={styles.scanDetails}>
-                    <View style={styles.discountBadge}>
+                    <View style={styles.scanDiscount}>
                       <Text style={styles.discountText}>{scan.discount_applied}</Text>
                     </View>
-                    <View style={styles.verificationCode}>
-                      <Text style={styles.codeLabel}>Code:</Text>
-                      <Text style={styles.codeValue}>{scan.verification_code}</Text>
+                  </View>
+
+                  {/* VERIFICATION CODE - PROMINENT DISPLAY */}
+                  <View style={styles.verificationSection}>
+                    <View style={styles.verificationHeader}>
+                      <Shield color="#c084fc" size={18} />
+                      <Text style={styles.verificationLabel}>Verification Code:</Text>
                     </View>
+                    <View style={styles.verificationCodeBox}>
+                      <Text style={styles.verificationCode}>
+                        {scan.verification_code}
+                      </Text>
+                    </View>
+                    <Text style={styles.verificationHint}>
+                      ✓ Student must show matching code
+                    </Text>
                   </View>
                 </View>
               ))}
@@ -471,7 +487,7 @@ export default function VendorHome() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Real-time Scan Notification */}
+      {/* Real-time Scan Notification Modal */}
       <Modal
         visible={showNotification}
         transparent
@@ -494,15 +510,19 @@ export default function VendorHome() {
                   </Text>
                 </View>
                 
-                <View style={styles.notificationCode}>
-                  <Text style={styles.notificationCodeLabel}>Verification Code:</Text>
+                {/* VERIFICATION CODE IN NOTIFICATION */}
+                <View style={styles.notificationVerification}>
+                  <View style={styles.notificationVerificationHeader}>
+                    <Shield color="#c084fc" size={24} />
+                    <Text style={styles.notificationCodeLabel}>Verification Code:</Text>
+                  </View>
                   <Text style={styles.notificationCodeValue}>
                     {latestScan.verification_code}
                   </Text>
                 </View>
 
                 <Text style={styles.notificationInstruction}>
-                  Ask the student to show you this code on their screen
+                  ✓ Student will show you this code on their screen
                 </Text>
               </>
             )}
@@ -546,10 +566,7 @@ const styles = StyleSheet.create({
   rejectedMessage: { color: '#c084fc', fontSize: 16, textAlign: 'center', lineHeight: 24, marginBottom: 32 },
   vendorCard: { margin: 16, padding: 24, borderRadius: 20, backgroundColor: 'rgba(245, 158, 11, 0.2)', borderWidth: 2, borderColor: '#f59e0b', alignItems: 'center' },
   vendorLogo: { fontSize: 48, marginBottom: 12 },
-  vendorImage:{
-    width: 400,
-    height: 400
-  },
+  vendorImage:{ width: 400, height: 400 },
   vendorName: { color: 'white', fontSize: 24, fontWeight: 'bold', marginBottom: 8 },
   statusBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, gap: 6 },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
@@ -560,23 +577,28 @@ const styles = StyleSheet.create({
   statValue: { color: 'white', fontSize: 24, fontWeight: 'bold', marginBottom: 4 },
   statLabel: { color: '#c084fc', fontSize: 12, textAlign: 'center' },
   section: { paddingHorizontal: 16, marginBottom: 24 },
-  sectionTitle: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  sectionTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  verificationBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(34, 197, 94, 0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.3)' },
+  verificationBadgeText: { color: '#22c55e', fontSize: 12, fontWeight: '600' },
   emptyState: { backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: 16, padding: 32, alignItems: 'center' },
   emptyStateText: { color: 'white', fontSize: 16, fontWeight: '600', marginBottom: 8 },
   emptyStateSubtext: { color: '#c084fc', fontSize: 14, textAlign: 'center' },
-  scansList: { gap: 12 },
+  scansList: { gap: 16 },
   scanCard: { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)' },
-  scanHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  scanHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   scanIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(34, 197, 94, 0.2)', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   scanInfo: { flex: 1 },
   scanStudent: { color: 'white', fontSize: 16, fontWeight: '600', marginBottom: 4 },
   scanTime: { color: '#c084fc', fontSize: 12 },
-  scanDetails: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  discountBadge: { backgroundColor: '#22c55e', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  scanDiscount: { backgroundColor: '#22c55e', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
   discountText: { color: 'white', fontSize: 14, fontWeight: 'bold' },
-  verificationCode: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  codeLabel: { color: '#c084fc', fontSize: 12 },
-  codeValue: { color: 'white', fontSize: 14, fontWeight: 'bold', fontFamily: 'monospace' },
+  verificationSection: { backgroundColor: 'rgba(192, 132, 252, 0.1)', padding: 16, borderRadius: 12, borderWidth: 2, borderColor: '#c084fc' },
+  verificationHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  verificationLabel: { color: '#c084fc', fontSize: 14, fontWeight: '600' },
+  verificationCodeBox: { backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: 12, borderRadius: 8, alignItems: 'center', marginBottom: 8 },
+  verificationCode: { color: 'white', fontSize: 32, fontWeight: 'bold', letterSpacing: 4, fontFamily: 'monospace' },
+  verificationHint: { color: '#22c55e', fontSize: 12, textAlign: 'center', fontWeight: '600' },
   actionCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)' },
   actionIcon: { width: 48, height: 48, backgroundColor: 'rgba(245, 158, 11, 0.2)', borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   actionContent: { flex: 1 },
@@ -589,10 +611,11 @@ const styles = StyleSheet.create({
   notificationStudent: { color: 'white', fontSize: 20, fontWeight: '600', marginBottom: 16, textAlign: 'center' },
   notificationDiscount: { backgroundColor: '#22c55e', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12, marginBottom: 20, alignSelf: 'center' },
   notificationDiscountText: { color: 'white', fontSize: 28, fontWeight: 'bold' },
-  notificationCode: { backgroundColor: 'rgba(192, 132, 252, 0.2)', padding: 16, borderRadius: 12, marginBottom: 16, alignItems: 'center', borderWidth: 2, borderColor: '#c084fc' },
-  notificationCodeLabel: { color: '#c084fc', fontSize: 14, marginBottom: 4 },
-  notificationCodeValue: { color: 'white', fontSize: 32, fontWeight: 'bold', letterSpacing: 4, fontFamily: 'monospace' },
-  notificationInstruction: { color: '#c084fc', fontSize: 14, textAlign: 'center', marginBottom: 20, lineHeight: 20 },
+  notificationVerification: { backgroundColor: 'rgba(192, 132, 252, 0.2)', padding: 20, borderRadius: 16, marginBottom: 16, alignItems: 'center', borderWidth: 2, borderColor: '#c084fc' },
+  notificationVerificationHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  notificationCodeLabel: { color: '#c084fc', fontSize: 16, fontWeight: '600' },
+  notificationCodeValue: { color: 'white', fontSize: 36, fontWeight: 'bold', letterSpacing: 6, fontFamily: 'monospace', marginBottom: 8 },
+  notificationInstruction: { color: '#22c55e', fontSize: 14, textAlign: 'center', marginBottom: 20, lineHeight: 20, fontWeight: '600' },
   notificationButton: { backgroundColor: '#f59e0b', paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
   notificationButtonText: { color: '#1e1b4b', fontSize: 18, fontWeight: 'bold' },
 });

@@ -1,3 +1,4 @@
+// app/(student)/index.tsx - FIXED SUBSCRIPTION DETECTION
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -7,7 +8,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
-  Image
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Search, Bell, User } from 'lucide-react-native';
@@ -27,13 +29,38 @@ export default function StudentHome() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [loading, setLoading] = useState(true);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
 
   const categories = ['All', 'Restaurant', 'Cafe', 'Arcade'];
 
   useEffect(() => {
     fetchVendors();
     fetchSubscription();
-  }, []);
+    
+    // Set up real-time subscription listener
+    if (user?.id) {
+      const channel = supabase
+        .channel(`student-home-subscription-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'user_subscriptions',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log('Student home: Subscription changed:', payload);
+            fetchSubscription();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [user?.id]);
 
   const fetchVendors = async () => {
     const { data, error } = await supabase
@@ -43,23 +70,50 @@ export default function StudentHome() {
       .order('rating', { ascending: false });
 
     if (data && !error) {
+      console.log('Fetched vendors:', data.length);
       setVendors(data);
     }
     setLoading(false);
   };
 
   const fetchSubscription = async () => {
-    if (!user) return;
+    if (!user?.id) {
+      setSubscriptionLoading(false);
+      return;
+    }
 
-    const { data } = await supabase
-      .from('user_subscriptions')
-      .select('*, subscription_plans(*)')
-      .eq('user_id', user.id)
-      .eq('active', true)
-      .single();
+    try {
+      const now = new Date().toISOString();
+      
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .select('*, subscription_plans(*)')
+        .eq('user_id', user.id)
+        .eq('active', true)
+        .gte('end_date', now)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (data) {
-      setSubscription(data);
+      console.log('Student Home Subscription Check:', {
+        userId: user.id,
+        hasData: !!data,
+        subscriptionId: data?.id?.substring(0, 8),
+        active: data?.active,
+        endDate: data?.end_date,
+        isExpired: data?.end_date ? new Date(data.end_date) <= new Date() : null,
+      });
+
+      if (data && !error) {
+        setSubscription(data);
+      } else {
+        setSubscription(null);
+      }
+    } catch (error) {
+      console.error('Subscription fetch error:', error);
+      setSubscription(null);
+    } finally {
+      setSubscriptionLoading(false);
     }
   };
 
@@ -71,6 +125,15 @@ export default function StudentHome() {
       selectedCategory === 'All' || vendor.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  if (loading || subscriptionLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#c084fc" />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -161,7 +224,8 @@ export default function StudentHome() {
                   styles.categoryText,
                   selectedCategory === category && styles.categoryTextActive,
                 ]}>
-                {category} </Text>
+                {category}
+              </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -191,6 +255,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1e1b4b',
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#1e1b4b',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: 'white',
+    fontSize: 16,
+    marginTop: 16,
   },
   header: {
     padding: 16,

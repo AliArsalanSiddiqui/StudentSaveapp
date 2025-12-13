@@ -1,6 +1,6 @@
-// components/VendorCard.tsx
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+// components/VendorCard.tsx - FIXED IMAGE LOADING
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { MapPin, Star } from 'lucide-react-native';
 import { Vendor } from '../types/index';
 
@@ -10,18 +10,39 @@ interface VendorCardProps {
 }
 
 export default function VendorCard({ vendor, onPress }: VendorCardProps) {
-  const isImageUrl = vendor.logo_url?.startsWith('http');
+  const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
+  
+  // Check if logo_url is a valid URL
+  const isImageUrl = vendor.logo_url && 
+    (vendor.logo_url.startsWith('http://') || vendor.logo_url.startsWith('https://'));
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
       {/* Logo */}
       <View style={styles.logoContainer}>
-        {isImageUrl ? (
-          <Image
-            source={{ uri: vendor.logo_url }}
-            style={styles.logoImage}
-            resizeMode="cover"
-          />
+        {isImageUrl && !imageError ? (
+          <>
+            {imageLoading && (
+              <ActivityIndicator 
+                color="#c084fc" 
+                size="small" 
+                style={styles.imageLoader}
+              />
+            )}
+            <Image
+              source={{ uri: vendor.logo_url }}
+              style={styles.logoImage}
+              resizeMode="cover"
+              onLoadStart={() => setImageLoading(true)}
+              onLoadEnd={() => setImageLoading(false)}
+              onError={(e) => {
+                console.log('Image load error:', vendor.logo_url);
+                setImageError(true);
+                setImageLoading(false);
+              }}
+            />
+          </>
         ) : (
           <Text style={styles.logo}>{vendor.logo_url || '🏪'}</Text>
         )}
@@ -41,14 +62,15 @@ export default function VendorCard({ vendor, onPress }: VendorCardProps) {
         <View style={styles.locationRow}>
           <MapPin color="#c084fc" size={14} />
           <Text style={styles.locationText} numberOfLines={1}>
-            {vendor.location} </Text>
+            {vendor.location}
+          </Text>
         </View>
 
         {/* Rating */}
         <View style={styles.ratingRow}>
           <Star color="#fbbf24" size={14} fill="#fbbf24" />
           <Text style={styles.ratingText}>{vendor.rating}</Text>
-          <Text style={styles.reviewCount}>({vendor.total_reviews}) </Text>
+          <Text style={styles.reviewCount}>({vendor.total_reviews})</Text>
         </View>
       </View>
 
@@ -78,6 +100,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
     overflow: 'hidden',
+  },
+  imageLoader: {
+    position: 'absolute',
+    zIndex: 1,
   },
   logoImage: {
     width: '100%',
