@@ -1,3 +1,4 @@
+// app/(student)/history.tsx - FIXED TO PASS UNIQUE TRANSACTION IDS
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -36,7 +37,7 @@ export default function HistoryScreen() {
     if (!user?.id) return;
 
     try {
-      // Fetch transactions with vendor details from the join
+      // Fetch transactions with vendor details
       const { data: transactionsData, error: txError } = await supabase
         .from('transactions')
         .select(`
@@ -83,7 +84,13 @@ export default function HistoryScreen() {
   };
 
   const handleTransactionPress = (transaction: Transaction) => {
-    // Navigate to discount claimed page with transaction details
+    // CRITICAL FIX: Pass the ACTUAL transaction ID
+    console.log('📋 Opening transaction:', {
+      transactionId: transaction.id,
+      vendorName: transaction.vendor?.name,
+      time: transaction.redeemed_at
+    });
+
     router.push({
       pathname: '/(student)/discount-claimed',
       params: {
@@ -91,8 +98,8 @@ export default function HistoryScreen() {
         vendorLogo: transaction.vendor?.logo_url || '🏪',
         vendorLocation: transaction.vendor?.location || 'Unknown Location',
         discount: transaction.discount_applied,
-        transactionId: transaction.id, // Pass transaction ID
-        transactionTime: transaction.redeemed_at, // Pass actual transaction time
+        transactionId: transaction.id, // Pass ACTUAL transaction ID
+        transactionTime: transaction.redeemed_at, // Pass actual time
       },
     });
   };
@@ -222,6 +229,14 @@ export default function HistoryScreen() {
                         </Text>
                       </View>
 
+                      {/* SHOW VERIFICATION CODE IN HISTORY */}
+                      <View style={styles.verificationRow}>
+                        <Text style={styles.verificationLabel}>Code:</Text>
+                        <Text style={styles.verificationCode}>
+                          {transaction.id.substring(0, 8).toUpperCase()}
+                        </Text>
+                      </View>
+
                       {transaction.amount_saved > 0 && (
                         <View style={styles.savedRow}>
                           <Text style={styles.savedLabel}>Saved:</Text>
@@ -231,7 +246,7 @@ export default function HistoryScreen() {
                         </View>
                       )}
                       
-                      <Text style={styles.tapToView}>Tap to view details</Text>
+                      <Text style={styles.tapToView}>Tap to view full details</Text>
                     </View>
                   </TouchableOpacity>
                 ))}
@@ -420,6 +435,30 @@ const styles = StyleSheet.create({
   detailText: {
     color: '#c084fc',
     fontSize: 14,
+  },
+  verificationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(192, 132, 252, 0.15)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(192, 132, 252, 0.3)',
+    marginBottom: 8,
+  },
+  verificationLabel: {
+    color: '#c084fc',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  verificationCode: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: 'monospace',
+    letterSpacing: 2,
   },
   savedRow: {
     flexDirection: 'row',

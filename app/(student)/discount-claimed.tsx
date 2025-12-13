@@ -1,4 +1,4 @@
-// app/(student)/discount-claimed.tsx - FIXED VERIFICATION CODE DISPLAY
+// app/(student)/discount-claimed.tsx - FIXED UNIQUE VERIFICATION CODE DISPLAY
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -30,6 +30,7 @@ export default function DiscountClaimedScreen() {
     date: string;
     time: string;
     verificationCode: string;
+    transactionId: string;
   } | null>(null);
   
   const [loading, setLoading] = useState(true);
@@ -40,32 +41,41 @@ export default function DiscountClaimedScreen() {
 
   const loadTransactionData = async () => {
     try {
-      // If transactionId is passed (from history), use it directly
       const transactionId = params.transactionId as string;
       const transactionTime = params.transactionTime as string;
       
       if (transactionId && transactionTime) {
-        // Coming from history with transaction details
-        console.log('Loading from history:', { transactionId, transactionTime });
+        // CRITICAL FIX: Use the ACTUAL transaction ID passed from QR scanner
+        console.log('📋 Loading transaction with ID:', transactionId);
+        
         const redeemedDate = new Date(transactionTime);
+        
+        // Use the first 8 characters of the ACTUAL transaction ID
+        const uniqueVerificationCode = transactionId.substring(0, 8).toUpperCase();
+        
+        console.log('🔐 Unique verification code:', uniqueVerificationCode);
+        
         setTransactionData({
           date: format(redeemedDate, 'MMM dd, yyyy'),
           time: format(redeemedDate, 'h:mm a'),
-          verificationCode: transactionId.substring(0, 8).toUpperCase(),
+          verificationCode: uniqueVerificationCode,
+          transactionId: transactionId, // Store full transaction ID
         });
         setLoading(false);
       } else if (vendorId && user?.id) {
-        // Coming from QR scan, fetch latest transaction
-        console.log('Loading latest transaction for vendor:', vendorId);
+        // Fallback: fetch latest transaction if params missing
+        console.log('⚠️ Missing transaction params, fetching latest...');
         await fetchLatestTransaction();
       } else {
-        // Fallback
-        console.log('Using fallback data');
+        // Last resort fallback
+        console.log('⚠️ Using emergency fallback');
         const now = new Date();
+        const fallbackCode = `EMRG-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
         setTransactionData({
           date: format(now, 'MMM dd, yyyy'),
           time: format(now, 'h:mm a'),
-          verificationCode: `VD-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+          verificationCode: fallbackCode,
+          transactionId: 'unknown',
         });
         setLoading(false);
       }
@@ -82,13 +92,11 @@ export default function DiscountClaimedScreen() {
     }
 
     try {
-      // Get today's date at midnight for comparison
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      console.log('Fetching transaction:', { userId: user.id, vendorId, today: today.toISOString() });
+      console.log('🔍 Fetching latest transaction:', { userId: user.id, vendorId });
 
-      // Fetch the most recent transaction for this vendor today
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
@@ -101,30 +109,36 @@ export default function DiscountClaimedScreen() {
 
       if (error) {
         console.error('Transaction fetch error:', error);
-        // Use fallback if not found
+        // Use fallback
         const now = new Date();
         setTransactionData({
           date: format(now, 'MMM dd, yyyy'),
           time: format(now, 'h:mm a'),
-          verificationCode: `VD-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+          verificationCode: `FLBK-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+          transactionId: 'fallback',
         });
       } else if (data) {
-        console.log('Transaction found:', data.id);
+        console.log('✅ Transaction found:', data.id);
         const redeemedDate = new Date(data.redeemed_at);
+        
+        // CRITICAL: Use the actual transaction ID from database
+        const uniqueVerificationCode = data.id.substring(0, 8).toUpperCase();
+        
         setTransactionData({
           date: format(redeemedDate, 'MMM dd, yyyy'),
           time: format(redeemedDate, 'h:mm a'),
-          verificationCode: data.id.substring(0, 8).toUpperCase(),
+          verificationCode: uniqueVerificationCode,
+          transactionId: data.id,
         });
       }
     } catch (error) {
       console.error('Error fetching transaction:', error);
-      // Fallback to current time if fetch fails
       const now = new Date();
       setTransactionData({
         date: format(now, 'MMM dd, yyyy'),
         time: format(now, 'h:mm a'),
-        verificationCode: `VD-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+        verificationCode: `ERR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+        transactionId: 'error',
       });
     } finally {
       setLoading(false);
@@ -219,14 +233,19 @@ export default function DiscountClaimedScreen() {
             </View>
           </View>
 
-          {/* Verification Code - EMPHASIZED */}
+          {/* VERIFICATION CODE - UNIQUE AND PROMINENT */}
           <View style={styles.verificationSection}>
             <Text style={styles.verificationLabel}>🔐 Verification Code</Text>
-            <Text style={styles.verificationCode}>
-              {transactionData.verificationCode}
-            </Text>
+            <View style={styles.verificationCodeContainer}>
+              <Text style={styles.verificationCode}>
+                {transactionData.verificationCode}
+              </Text>
+            </View>
             <Text style={styles.verificationHint}>
-              Show this code to the vendor
+              ✓ This code is unique to this transaction
+            </Text>
+            <Text style={styles.verificationSubhint}>
+              Transaction ID: {transactionData.transactionId.substring(0, 12)}...
             </Text>
           </View>
         </View>
@@ -428,31 +447,47 @@ const styles = StyleSheet.create({
   },
   verificationSection: {
     marginTop: 20,
-    padding: 20,
+    padding: 24,
     backgroundColor: 'rgba(192, 132, 252, 0.15)',
     borderRadius: 16,
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: '#c084fc',
   },
   verificationLabel: {
     color: '#c084fc',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  verificationCodeContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
     marginBottom: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(192, 132, 252, 0.3)',
   },
   verificationCode: {
     color: 'white',
-    fontSize: 40,
+    fontSize: 48,
     fontWeight: 'bold',
-    letterSpacing: 6,
+    letterSpacing: 8,
     fontFamily: 'monospace',
-    marginBottom: 8,
   },
   verificationHint: {
+    color: '#22c55e',
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  verificationSubhint: {
     color: '#c084fc',
-    fontSize: 12,
+    fontSize: 11,
     fontStyle: 'italic',
+    opacity: 0.7,
   },
   instructionsCard: {
     backgroundColor: 'rgba(192, 132, 252, 0.1)',

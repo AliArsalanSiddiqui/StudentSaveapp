@@ -1,4 +1,4 @@
-// components/QRScanner.tsx - FIXED SUBSCRIPTION CHECK
+// components/QRScanner.tsx - FIXED UNIQUE VERIFICATION CODE
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -64,7 +64,6 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
     }, 2000);
   };
 
-  // FIXED: More robust subscription check
   const checkActiveSubscription = async (): Promise<boolean> => {
     if (!user?.id) {
       console.log('❌ No user ID found');
@@ -74,7 +73,6 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
     try {
       const now = new Date().toISOString();
       
-      // Query with explicit conditions
       const { data: subscriptions, error } = await supabase
         .from('user_subscriptions')
         .select('*')
@@ -88,7 +86,6 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
         return false;
       }
 
-      // Debug log
       console.log('🔍 Subscription check:', {
         userId: user.id,
         foundCount: subscriptions?.length || 0,
@@ -100,7 +97,6 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
         }))
       });
 
-      // Check if we have any valid subscription
       const hasValidSubscription = subscriptions && subscriptions.length > 0 && 
         subscriptions.some(sub => 
           sub.active === true && 
@@ -158,7 +154,7 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
         return;
       }
 
-      // Step 3: Check if user has active subscription (FIXED)
+      // Step 3: Check if user has active subscription
       const hasSubscription = await checkActiveSubscription();
       
       if (!hasSubscription) {
@@ -216,7 +212,8 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
 
       console.log('✅ No duplicate redemption');
 
-      // Step 5: Create transaction
+      // Step 5: Create transaction with unique ID
+      // CRITICAL FIX: Use Supabase's generated UUID as the verification code
       const { data: newTransaction, error: transactionError } = await supabase
         .from('transactions')
         .insert({
@@ -228,16 +225,18 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
         .select()
         .single();
 
-      if (transactionError) {
+      if (transactionError || !newTransaction) {
         console.error('❌ Transaction creation error:', transactionError);
         showAlert('Error', 'Failed to process transaction. Please try again.', 'error');
         resetScanner();
         return;
       }
 
-      console.log('✅ Transaction created:', newTransaction.id);
+      // CRITICAL: The transaction.id is the UNIQUE verification code
+      const verificationCode = newTransaction.id.substring(0, 8).toUpperCase();
+      console.log('✅ Transaction created with unique verification code:', verificationCode);
 
-      // Step 6: Success - navigate to discount claimed screen
+      // Step 6: Success - navigate to discount claimed screen with UNIQUE transaction ID
       showAlert(
         'Success! 🎉',
         `${vendor.discount_text} discount redeemed at ${vendor.name}!`,
@@ -255,7 +254,7 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
                   vendorLocation: vendor.location,
                   discount: vendor.discount_text,
                   vendorId: vendor.id,
-                  transactionId: newTransaction.id,
+                  transactionId: newTransaction.id, // Pass FULL transaction ID
                   transactionTime: newTransaction.redeemed_at,
                 },
               });
