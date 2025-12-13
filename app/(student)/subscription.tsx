@@ -30,7 +30,7 @@ export default function SubscriptionScreen() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const { alertConfig, showAlert, Alert } = useCustomAlert();
-
+  const PAYMENTS_ENABLED = false;
   useEffect(() => {
     loadData();
     
@@ -242,23 +242,38 @@ export default function SubscriptionScreen() {
 
           <View style={paymentModalStyles.buttonGrid}>
             <TouchableOpacity
-              style={paymentModalStyles.methodButton}
+              style={[
+                paymentModalStyles.methodButton,
+                !PAYMENTS_ENABLED && paymentModalStyles.disabledButton,
+              ]}
+              disabled={!PAYMENTS_ENABLED}
               onPress={() => {
+                if (!PAYMENTS_ENABLED) return;
                 setShowPaymentModal(false);
                 if (selectedPlan) initiatePayment(selectedPlan, 'jazzcash');
               }}
             >
-              <Text style={paymentModalStyles.methodButtonText}>JazzCash</Text>
+              <Text style={paymentModalStyles.methodButtonText}>
+                JazzCash
+              </Text>
             </TouchableOpacity>
 
+
             <TouchableOpacity
-              style={paymentModalStyles.methodButton}
+              style={[
+                paymentModalStyles.methodButton,
+                !PAYMENTS_ENABLED && paymentModalStyles.disabledButton,
+              ]}
+              disabled={!PAYMENTS_ENABLED}
               onPress={() => {
+                if (!PAYMENTS_ENABLED) return;
                 setShowPaymentModal(false);
                 if (selectedPlan) initiatePayment(selectedPlan, 'easypaisa');
               }}
             >
-              <Text style={paymentModalStyles.methodButtonText}>EasyPaisa</Text>
+              <Text style={paymentModalStyles.methodButtonText}>
+                EasyPaisa
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -496,6 +511,9 @@ const paymentModalStyles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 12,
     marginBottom: 16,
+  },
+  disabledButton: {
+    opacity: 0.4
   },
   methodButton: {
     flex: 1,
