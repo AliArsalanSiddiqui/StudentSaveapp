@@ -1,4 +1,4 @@
-// app/(student)/manual-payment.tsx - FIXED FOR PHYSICAL DEVICES
+// app/(student)/manual-payment.tsx - FIXED BUCKET ERROR
 import React, { useState } from 'react';
 import {
   View,
@@ -17,6 +17,7 @@ import * as Clipboard from 'expo-clipboard';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import CustomAlert, { useCustomAlert } from '@/components/CustomAlert';
+import * as FileSystem from 'expo-file-system';
 
 export default function ManualPaymentScreen() {
   const router = useRouter();
@@ -48,7 +49,6 @@ export default function ManualPaymentScreen() {
 
   const pickImage = async () => {
     try {
-      // Request permissions
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (status !== 'granted') {
@@ -60,11 +60,10 @@ export default function ManualPaymentScreen() {
         return;
       }
 
-      // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        quality: 0.7, // Compress to 70% quality
+        quality: 0.7,
         allowsMultipleSelection: false,
       });
 
@@ -82,67 +81,46 @@ export default function ManualPaymentScreen() {
   };
 
   const uploadScreenshot = async (): Promise<string | null> => {
-    if (!screenshot || !user?.id) return null;
+  if (!screenshot || !user?.id) return null;
 
-    try {
-      console.log('Starting upload...', screenshot);
+  const fileExt = screenshot.split('.').pop()?.toLowerCase() ?? 'jpg';
+  const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
-      // Get file extension
-      const fileExt = screenshot.split('.').pop()?.toLowerCase() || 'jpg';
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-      
-      console.log('Uploading to:', fileName);
+  // 1️⃣ Create signed upload URL
+  const { data, error } = await supabase.storage
+    .from('payment-proofs')
+    .createSignedUploadUrl(fileName);
 
-      // Read file as blob (React Native compatible)
-      const response = await fetch(screenshot);
-      if (!response.ok) {
-        throw new Error('Failed to read image file');
-      }
-      
-      const blob = await response.blob();
-      console.log('Blob size:', blob.size);
+  if (error || !data) {
+    console.error('Signed URL error:', error);
+    throw error;
+  }
 
-      // Check bucket exists first
-      const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
-      console.log('Available buckets:', buckets?.map(b => b.name));
-      
-      if (bucketError) {
-        console.error('Bucket list error:', bucketError);
-      }
-
-      const bucketExists = buckets?.some(b => b.name === 'payment-proofs');
-      if (!bucketExists) {
-        throw new Error('Storage bucket "payment-proofs" does not exist. Please create it in Supabase Dashboard.');
-      }
-
-      // Upload to Supabase Storage
-      const { data, error } = await supabase.storage
-        .from('payment-proofs')
-        .upload(fileName, blob, {
-          contentType: `image/${fileExt}`,
-          cacheControl: '3600',
-          upsert: false,
-        });
-
-      if (error) {
-        console.error('Upload error:', error);
-        throw error;
-      }
-
-      console.log('Upload successful:', data);
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('payment-proofs')
-        .getPublicUrl(fileName);
-
-      console.log('Public URL:', urlData.publicUrl);
-      return urlData.publicUrl;
-    } catch (error: any) {
-      console.error('Upload error details:', error);
-      throw error;
+  // 2️⃣ Upload file directly (NO blobs)
+  const uploadResult = await FileSystem.uploadAsync(
+    data.signedUrl,
+    screenshot,
+    {
+      httpMethod: 'PUT',
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: {
+        'Content-Type': `image/${fileExt}`,
+      },
     }
-  };
+  );
+
+  if (uploadResult.status !== 200) {
+    throw new Error(`Upload failed: ${uploadResult.status}`);
+  }
+
+  // 3️⃣ Get public URL
+  const { data: publicData } = supabase.storage
+    .from('payment-proofs')
+    .getPublicUrl(fileName);
+
+  return publicData.publicUrl;
+};
+
 
   const handleSubmit = async () => {
     // Validation
@@ -167,50 +145,110 @@ export default function ManualPaymentScreen() {
     setUploading(true);
 
     try {
-      // Upload screenshot
-      const screenshotUrl = await uploadScreenshot();
-      
-      if (!screenshotUrl) {
-        throw new Error('Failed to upload screenshot');
-      }
-
-      console.log('Screenshot uploaded:', screenshotUrl);
-
-      // Check if table exists by trying to query it
-      const { error: tableCheckError } = await supabase
-        .from('manual_payment_submissions')
-        .select('id')
-        .limit(1);
-
-      if (tableCheckError && tableCheckError.message.includes('does not exist')) {
-        throw new Error('Database table "manual_payment_submissions" does not exist. Please create it in Supabase.');
-      }
-
-      // Create pending submission record
-      const { error } = await supabase.from('manual_payment_submissions').insert({
+      // FIX 4: Store submission first WITHOUT screenshot URL
+      // This way even if upload fails, we have the submission record
+      const tempSubmission = {
         user_id: user?.id,
         plan_id: planId,
         amount: amount,
         payment_method: selectedMethod,
-        screenshot_url: screenshotUrl,
+        screenshot_url: 'pending', // Temporary placeholder
         status: 'pending',
         user_email: user?.email,
         user_name: user?.name,
         plan_name: planName,
         plan_duration_months: months,
-      });
+      };
 
-      if (error) {
-        console.error('Database insert error:', error);
-        throw error;
+      // Create initial submission
+      const { data: submissionData, error: submissionError } = await supabase
+        .from('manual_payment_submissions')
+        .insert(tempSubmission)
+        .select()
+        .single();
+
+      if (submissionError) {
+        console.error('Database insert error:', submissionError);
+        throw submissionError;
       }
 
-      console.log('Submission created successfully');
+      console.log('Submission created:', submissionData.id);
+
+      // FIX 5: Now try to upload screenshot
+      let screenshotUrl = 'pending';
+      let uploadFailed = false;
+      let uploadErrorType = '';
+      
+      try {
+        const uploadedUrl = await uploadScreenshot();
+        if (uploadedUrl) {
+          screenshotUrl = uploadedUrl;
+        }
+      } catch (uploadError: any) {
+        console.error('Screenshot upload failed:', uploadError);
+        uploadFailed = true;
+        
+        // Parse error type for better user message
+        if (uploadError.message?.includes('NETWORK_ERROR')) {
+          uploadErrorType = 'network';
+          screenshotUrl = `upload_failed:network_error`;
+        } else if (uploadError.message?.includes('BUCKET_ERROR')) {
+          uploadErrorType = 'bucket';
+          screenshotUrl = `upload_failed:bucket_error`;
+        } else if (uploadError.message?.includes('PERMISSION_ERROR')) {
+          uploadErrorType = 'permission';
+          screenshotUrl = `upload_failed:permission_error`;
+        } else if (uploadError.message?.includes('CORS_ERROR')) {
+          uploadErrorType = 'cors';
+          screenshotUrl = `upload_failed:cors_error`;
+        } else {
+          uploadErrorType = 'unknown';
+          screenshotUrl = `upload_failed:${uploadError.message}`;
+        }
+      }
+
+      // Update submission with screenshot URL (or error message)
+      const { error: updateError } = await supabase
+        .from('manual_payment_submissions')
+        .update({ screenshot_url: screenshotUrl })
+        .eq('id', submissionData.id);
+
+      if (updateError) {
+        console.error('Failed to update screenshot URL:', updateError);
+      }
+
+      console.log('Submission process completed');
+
+      // Show success message with context about upload
+      let alertTitle = 'Submitted Successfully! ✅';
+      let alertMessage = 'Your payment is under review. You will be notified once approved (usually within 24 hours).';
+      
+      if (uploadFailed) {
+        alertTitle = 'Submission Recorded ⚠️';
+        
+        if (uploadErrorType === 'network') {
+          alertMessage = 'Your payment submission was recorded, but the screenshot could not be uploaded due to network issues.\n\n' +
+                        'Please save your submission ID: ' + submissionData.id.slice(0, 8) + '\n\n' +
+                        'Contact support with this ID to complete your submission, or try again when you have better internet connection.';
+        } else if (uploadErrorType === 'bucket' || uploadErrorType === 'permission') {
+          alertMessage = 'Your payment submission was recorded, but storage permissions are not configured correctly.\n\n' +
+                        'Your submission ID: ' + submissionData.id.slice(0, 8) + '\n\n' +
+                        'Please contact support immediately with this ID. The technical team needs to fix storage access.';
+        } else if (uploadErrorType === 'cors') {
+          alertMessage = 'Your payment submission was recorded, but there is a technical issue with file uploads.\n\n' +
+                        'Your submission ID: ' + submissionData.id.slice(0, 8) + '\n\n' +
+                        'Please contact support immediately with this ID. The issue is on our end and will be resolved.';
+        } else {
+          alertMessage = 'Your payment submission was recorded, but the screenshot upload encountered an error.\n\n' +
+                        'Submission ID: ' + submissionData.id.slice(0, 8) + '\n\n' +
+                        'Please contact support with this ID to complete your submission.';
+        }
+      }
 
       showAlert({
-        type: 'success',
-        title: 'Submitted Successfully! ✅',
-        message: 'Your payment is under review. You will be notified once approved (usually within 24 hours).',
+        type: uploadFailed ? 'warning' : 'success',
+        title: alertTitle,
+        message: alertMessage,
         buttons: [
           {
             text: 'OK',
@@ -219,14 +257,17 @@ export default function ManualPaymentScreen() {
           },
         ],
       });
+      
     } catch (error: any) {
       console.error('Submission error:', error);
       
       let errorMessage = 'Failed to submit payment proof';
       
-      if (error.message.includes('bucket')) {
-        errorMessage = 'Storage not configured. Please contact support.';
-      } else if (error.message.includes('table')) {
+      if (error.message?.includes('BUCKET_NOT_FOUND')) {
+        errorMessage = 'Storage system is not properly configured. Please contact support immediately.';
+      } else if (error.message?.includes('bucket')) {
+        errorMessage = 'File storage error. Please try again or contact support.';
+      } else if (error.message?.includes('table')) {
         errorMessage = 'Database not configured. Please contact support.';
       } else if (error.message) {
         errorMessage = error.message;
