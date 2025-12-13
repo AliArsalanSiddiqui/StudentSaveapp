@@ -1,4 +1,4 @@
-// app/(vendor)/profile.tsx - UPDATED TO SYNC WITH vendor_registrations
+// app/(vendor)/profile.tsx - WITH LOGO UPLOAD FUNCTIONALITY
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -8,7 +8,8 @@ import {
   StyleSheet,
   TextInput,
   Modal,
-  Switch,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import {
   ChevronLeft,
@@ -17,18 +18,20 @@ import {
   Phone,
   MapPin,
   Edit2,
-  Settings,
   HelpCircle,
   LogOut,
   ChevronRight,
   Tag,
-  Clock,
+  Upload,
+  Camera,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import CustomAlert, { useCustomAlert } from '@/components/CustomAlert';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 
 export default function VendorProfile() {
   const router = useRouter();
@@ -37,6 +40,7 @@ export default function VendorProfile() {
   
   const [vendorRegistration, setVendorRegistration] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [editData, setEditData] = useState({
     business_name: '',
     location: '',
@@ -45,6 +49,7 @@ export default function VendorProfile() {
     discount_percentage: 20,
     terms: '',
     category: 'Restaurant',
+    logo_url: '',
   });
 
   const categories = ['Restaurant', 'Cafe', 'Arcade', 'Clothing', 'Entertainment'];
@@ -57,7 +62,6 @@ export default function VendorProfile() {
     if (!user?.id) return;
 
     try {
-      // Fetch from vendor_registrations table
       const { data, error } = await supabase
         .from('vendor_registrations')
         .select('*')
@@ -74,6 +78,7 @@ export default function VendorProfile() {
           discount_percentage: data.discount_percentage,
           terms: data.terms || '',
           category: data.category,
+          logo_url: data.logo_url || '',
         });
       }
     } catch (error) {
@@ -81,11 +86,148 @@ export default function VendorProfile() {
     }
   };
 
+  const pickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        showAlert({
+          type: 'error',
+          title: 'Permission Required',
+          message: 'Please grant photo library access to upload logo',
+        });
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadLogo(result.assets[0].uri);
+      }
+    } catch (error: any) {
+      console.error('Image picker error:', error);
+      showAlert({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to pick image: ' + error.message,
+      });
+    }
+  };
+
+  const uploadLogo = async (imageUri: string): Promise<void> => {
+    if (!user?.id || !vendorRegistration?.id) return;
+
+    setUploadingLogo(true);
+
+    try {
+      const fileExt = imageUri.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const fileName = `${vendorRegistration.id}/${Date.now()}.${fileExt}`;
+
+      console.log('📤 Uploading logo:', fileName);
+
+      // 1️⃣ Create signed upload URL
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+        .from('vendor-logos')
+        .createSignedUploadUrl(fileName);
+
+      if (signedUrlError || !signedUrlData) {
+        console.error('Signed URL error:', signedUrlError);
+        throw new Error('Failed to create upload URL');
+      }
+
+      // 2️⃣ Upload file using FileSystem
+      const uploadResult = await FileSystem.uploadAsync(
+        signedUrlData.signedUrl,
+        imageUri,
+        {
+          httpMethod: 'PUT',
+          uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+          headers: {
+            'Content-Type': `image/${fileExt}`,
+          },
+        }
+      );
+
+      if (uploadResult.status !== 200) {
+        throw new Error(`Upload failed: ${uploadResult.status}`);
+      }
+
+      console.log('✅ Logo uploaded successfully');
+
+      // 3️⃣ Get public URL
+      const { data: publicData } = supabase.storage
+        .from('vendor-logos')
+        .getPublicUrl(fileName);
+
+      const logoUrl = publicData.publicUrl;
+      console.log('🔗 Public URL:', logoUrl);
+
+      // 4️⃣ Update vendor_registrations
+      const { error: updateError } = await supabase
+        .from('vendor_registrations')
+        .update({
+          logo_url: logoUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', vendorRegistration.id);
+
+      if (updateError) {
+        console.error('Database update error:', updateError);
+        throw updateError;
+      }
+
+      // 5️⃣ If verified, also update vendors table
+      if (vendorRegistration.verified) {
+        await supabase
+          .from('vendors')
+          .update({ logo_url: logoUrl })
+          .eq('id', vendorRegistration.id);
+      }
+
+      console.log('✅ Database updated with logo URL');
+
+      // Update local state
+      setEditData({ ...editData, logo_url: logoUrl });
+      await loadVendorData();
+
+      showAlert({
+        type: 'success',
+        title: 'Success! 🎉',
+        message: 'Logo uploaded successfully',
+      });
+
+    } catch (error: any) {
+      console.error('❌ Logo upload error:', error);
+      
+      let errorMessage = 'Failed to upload logo';
+      
+      if (error.message?.includes('BUCKET_NOT_FOUND')) {
+        errorMessage = 'Storage bucket not configured. Please contact support.';
+      } else if (error.message?.includes('PERMISSION')) {
+        errorMessage = 'Storage permissions error. Please contact support.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      showAlert({
+        type: 'error',
+        title: 'Upload Failed',
+        message: errorMessage,
+      });
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   const handleSaveProfile = async () => {
     if (!vendorRegistration?.id) return;
 
     try {
-      // Update vendor_registrations (will auto-sync to vendors if verified)
       const { error: regError } = await supabase
         .from('vendor_registrations')
         .update({
@@ -110,6 +252,22 @@ export default function VendorProfile() {
 
       if (userError) throw userError;
 
+      // If verified, sync to vendors table
+      if (vendorRegistration.verified) {
+        await supabase
+          .from('vendors')
+          .update({
+            name: editData.business_name,
+            location: editData.location,
+            description: editData.description,
+            discount_percentage: editData.discount_percentage,
+            discount_text: `${editData.discount_percentage}% OFF`,
+            terms: editData.terms,
+            category: editData.category,
+          })
+          .eq('id', vendorRegistration.id);
+      }
+
       await loadVendorData();
       setShowEditModal(false);
 
@@ -125,63 +283,6 @@ export default function VendorProfile() {
         message: error.message || 'Failed to update profile',
       });
     }
-  };
-
-  const handleToggleActive = async () => {
-    if (!vendorRegistration?.id || !vendorRegistration.verified) {
-      showAlert({
-        type: 'warning',
-        title: 'Cannot Change Status',
-        message: 'Your account must be verified by admin first',
-      });
-      return;
-    }
-
-    // Fetch current vendor status
-    const { data: vendorData } = await supabase
-      .from('vendors')
-      .select('active')
-      .eq('id', vendorRegistration.id)
-      .single();
-
-    const newStatus = !vendorData?.active;
-
-    showAlert({
-      type: 'warning',
-      title: `${newStatus ? 'Activate' : 'Deactivate'} Vendor?`,
-      message: `This will ${newStatus ? 'enable' : 'disable'} student redemptions`,
-      buttons: [
-        { text: 'Cancel', onPress: () => {}, style: 'cancel' },
-        {
-          text: 'Confirm',
-          style: 'default',
-          onPress: async () => {
-            try {
-              const { error } = await supabase
-                .from('vendors')
-                .update({ active: newStatus })
-                .eq('id', vendorRegistration.id);
-
-              if (error) throw error;
-
-              await loadVendorData();
-              
-              showAlert({
-                type: 'success',
-                title: 'Success',
-                message: `Vendor ${newStatus ? 'activated' : 'deactivated'}`,
-              });
-            } catch (error) {
-              showAlert({
-                type: 'error',
-                title: 'Error',
-                message: 'Failed to update status',
-              });
-            }
-          },
-        },
-      ],
-    });
   };
 
   const handleLogout = () => {
@@ -250,9 +351,40 @@ export default function VendorProfile() {
         
         {/* Profile Card */}
         <View style={styles.profileCard}>
-          <View style={styles.avatarContainer}>
-            <Store color="#1e1b4b" size={48} />
-          </View>
+          {/* Logo Upload Section */}
+          <TouchableOpacity
+            style={styles.logoUploadContainer}
+            onPress={pickImage}
+            disabled={uploadingLogo}
+          >
+            {editData.logo_url ? (
+              <Image
+                source={{ uri: editData.logo_url }}
+                style={styles.logoImage}
+              />
+            ) : (
+              <View style={styles.avatarContainer}>
+                <Store color="#1e1b4b" size={48} />
+              </View>
+            )}
+            
+            {uploadingLogo ? (
+              <View style={styles.uploadingOverlay}>
+                <ActivityIndicator color="#f59e0b" size="large" />
+                <Text style={styles.uploadingText}>Uploading...</Text>
+              </View>
+            ) : (
+              <View style={styles.cameraButton}>
+                <Camera color="white" size={20} />
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={pickImage} disabled={uploadingLogo}>
+            <Text style={styles.changeLogoText}>
+              {editData.logo_url ? 'Change Logo' : 'Upload Logo'}
+            </Text>
+          </TouchableOpacity>
 
           <Text style={styles.vendorName}>{vendorRegistration.business_name}</Text>
           <Text style={styles.vendorEmail}>{user?.email}</Text>
@@ -471,7 +603,13 @@ const styles = StyleSheet.create({
   loadingText: { color: 'white', fontSize: 16 },
   content: { padding: 24, paddingTop: 60 },
   profileCard: { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: 24, padding: 32, alignItems: 'center', marginBottom: 24, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)' },
-  avatarContainer: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#f59e0b', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  logoUploadContainer: { position: 'relative', marginBottom: 12 },
+  avatarContainer: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#f59e0b', justifyContent: 'center', alignItems: 'center' },
+  logoImage: { width: 120, height: 120, borderRadius: 60 },
+  uploadingOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.7)', borderRadius: 60, justifyContent: 'center', alignItems: 'center' },
+  uploadingText: { color: 'white', fontSize: 12, marginTop: 8 },
+  cameraButton: { position: 'absolute', bottom: 0, right: 0, width: 36, height: 36, borderRadius: 18, backgroundColor: '#f59e0b', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#1e1b4b' },
+  changeLogoText: { color: '#f59e0b', fontSize: 14, fontWeight: '600', marginBottom: 12 },
   vendorName: { color: 'white', fontSize: 24, fontWeight: 'bold', marginBottom: 4 },
   vendorEmail: { color: '#c084fc', fontSize: 14, marginBottom: 12 },
   statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, gap: 4 },

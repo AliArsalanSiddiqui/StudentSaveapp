@@ -1,3 +1,4 @@
+// components/QRScanner.tsx - FIXED SUBSCRIPTION CHECK
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -11,7 +12,7 @@ import { AlertConfig } from '@/types';
 interface QRScannerProps {
   onClose: () => void;
   onSuccess: (vendorId: string, vendorData: any) => void;
-  restrictToVendorId?: string; // NEW: Optional vendor ID to restrict scanning
+  restrictToVendorId?: string;
 }
 
 export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QRScannerProps) {
@@ -59,7 +60,64 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
   const resetScanner = () => {
     setTimeout(() => {
       setScanned(false);
+      setProcessing(false);
     }, 2000);
+  };
+
+  // FIXED: More robust subscription check
+  const checkActiveSubscription = async (): Promise<boolean> => {
+    if (!user?.id) {
+      console.log('❌ No user ID found');
+      return false;
+    }
+
+    try {
+      const now = new Date().toISOString();
+      
+      // Query with explicit conditions
+      const { data: subscriptions, error } = await supabase
+        .from('user_subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('active', true)
+        .gte('end_date', now)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Subscription query error:', error);
+        return false;
+      }
+
+      // Debug log
+      console.log('🔍 Subscription check:', {
+        userId: user.id,
+        foundCount: subscriptions?.length || 0,
+        subscriptions: subscriptions?.map(s => ({
+          id: s.id.substring(0, 8),
+          active: s.active,
+          endDate: s.end_date,
+          isExpired: new Date(s.end_date) <= new Date()
+        }))
+      });
+
+      // Check if we have any valid subscription
+      const hasValidSubscription = subscriptions && subscriptions.length > 0 && 
+        subscriptions.some(sub => 
+          sub.active === true && 
+          new Date(sub.end_date) > new Date()
+        );
+
+      if (hasValidSubscription) {
+        console.log('✅ Valid subscription found');
+        return true;
+      } else {
+        console.log('❌ No valid subscription found');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Subscription check error:', error);
+      return false;
+    }
   };
 
   const handleBarcodeScanned = async ({ data }: { data: string }) => {
@@ -68,8 +126,10 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
     setScanned(true);
     setProcessing(true);
 
+    console.log('📷 QR Code scanned:', data);
+
     try {
-      // Verify QR code belongs to a vendor
+      // Step 1: Verify QR code belongs to a vendor
       const { data: vendor, error: vendorError } = await supabase
         .from('vendors')
         .select('*')
@@ -78,13 +138,17 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
         .single();
 
       if (vendorError || !vendor) {
-        showAlert('Error', 'Invalid QR code', 'error');
+        console.log('❌ Invalid QR code or inactive vendor');
+        showAlert('Invalid QR Code', 'This QR code does not belong to any active vendor', 'error');
         resetScanner();
         return;
       }
 
-      // NEW: Check if scanning is restricted to a specific vendor
+      console.log('✅ Valid vendor found:', vendor.name);
+
+      // Step 2: Check if scanning is restricted to a specific vendor
       if (restrictToVendorId && vendor.id !== restrictToVendorId) {
+        console.log('❌ Wrong vendor - expected:', restrictToVendorId, 'got:', vendor.id);
         showAlert(
           'Wrong Vendor QR Code',
           'This QR code does not belong to this vendor. Please scan the correct vendor\'s QR code.',
@@ -94,73 +158,93 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
         return;
       }
 
-      // Check if user has active subscription
-      const { data: subscription, error: subError } = await supabase
-        .from('user_subscriptions')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('active', true)
-        .gte('end_date', new Date().toISOString())
-        .single();
-
-      if (subError || !subscription) {
+      // Step 3: Check if user has active subscription (FIXED)
+      const hasSubscription = await checkActiveSubscription();
+      
+      if (!hasSubscription) {
+        console.log('❌ No active subscription');
         showAlert(
           'No Active Subscription',
           'Please subscribe to redeem discounts',
           'warning',
           [
             {
-              text: 'OK',
-              onPress: () => onClose(),
+              text: 'View Plans',
+              onPress: () => {
+                onClose();
+                router.push('/(student)/subscription');
+              },
               style: 'default',
+            },
+            {
+              text: 'Cancel',
+              onPress: () => {
+                setAlertConfig({ ...alertConfig, visible: false });
+                resetScanner();
+              },
+              style: 'cancel',
             },
           ]
         );
         return;
       }
 
-      // Check if already redeemed today
+      console.log('✅ Active subscription verified');
+
+      // Step 4: Check if already redeemed today
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const { data: existingTransaction } = await supabase
+      const { data: existingTransaction, error: txError } = await supabase
         .from('transactions')
         .select('*')
         .eq('user_id', user?.id)
         .eq('vendor_id', vendor.id)
         .gte('redeemed_at', today.toISOString())
-        .single();
+        .maybeSingle();
 
       if (existingTransaction) {
-        showAlert('Already Redeemed', 'You have already redeemed this discount today', 'warning');
+        console.log('⚠️ Already redeemed today');
+        showAlert(
+          'Already Redeemed',
+          'You have already redeemed this discount today. Come back tomorrow!',
+          'warning'
+        );
         resetScanner();
         return;
       }
 
-      // Create transaction
-      const { error: transactionError } = await supabase
+      console.log('✅ No duplicate redemption');
+
+      // Step 5: Create transaction
+      const { data: newTransaction, error: transactionError } = await supabase
         .from('transactions')
         .insert({
           user_id: user?.id,
           vendor_id: vendor.id,
           discount_applied: vendor.discount_text,
           amount_saved: 0,
-        });
+        })
+        .select()
+        .single();
 
       if (transactionError) {
-        showAlert('Error', 'Failed to process transaction', 'error');
+        console.error('❌ Transaction creation error:', transactionError);
+        showAlert('Error', 'Failed to process transaction. Please try again.', 'error');
         resetScanner();
         return;
       }
 
-      // Success - show alert before navigating
+      console.log('✅ Transaction created:', newTransaction.id);
+
+      // Step 6: Success - navigate to discount claimed screen
       showAlert(
-        'Success',
-        `Discount redeemed successfully!`,
+        'Success! 🎉',
+        `${vendor.discount_text} discount redeemed at ${vendor.name}!`,
         'success',
         [
           {
-            text: 'OK',
+            text: 'View Details',
             onPress: () => {
               onClose();
               router.push({
@@ -171,6 +255,8 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
                   vendorLocation: vendor.location,
                   discount: vendor.discount_text,
                   vendorId: vendor.id,
+                  transactionId: newTransaction.id,
+                  transactionTime: newTransaction.redeemed_at,
                 },
               });
             },
@@ -178,9 +264,13 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
           },
         ]
       );
-    } catch (error) {
-      console.error('QR scanning error:', error);
-      showAlert('Error', 'Something went wrong', 'error');
+    } catch (error: any) {
+      console.error('❌ QR scanning error:', error);
+      showAlert(
+        'Error',
+        error.message || 'Something went wrong. Please try again.',
+        'error'
+      );
       resetScanner();
     } finally {
       setProcessing(false);
@@ -241,7 +331,6 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
         </View>
       </CameraView>
 
-      {/* Custom Alert */}
       <CustomAlert
         visible={alertConfig.visible}
         type={alertConfig.type}
