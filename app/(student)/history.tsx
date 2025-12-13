@@ -1,4 +1,4 @@
-// app/(student)/history.tsx - FIXED TO PASS UNIQUE TRANSACTION IDS
+// app/(student)/history.tsx - FIXED VERIFICATION CODE PASSING
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -84,9 +84,13 @@ export default function HistoryScreen() {
   };
 
   const handleTransactionPress = (transaction: Transaction) => {
-    // CRITICAL FIX: Pass the ACTUAL transaction ID
+    // CRITICAL FIX: Pass the ACTUAL transaction ID for each transaction
+    const uniqueTransactionId = transaction.id;
+    const verificationCode = uniqueTransactionId.substring(0, 8).toUpperCase();
+    
     console.log('📋 Opening transaction:', {
-      transactionId: transaction.id,
+      transactionId: uniqueTransactionId,
+      verificationCode: verificationCode,
       vendorName: transaction.vendor?.name,
       time: transaction.redeemed_at
     });
@@ -98,8 +102,9 @@ export default function HistoryScreen() {
         vendorLogo: transaction.vendor?.logo_url || '🏪',
         vendorLocation: transaction.vendor?.location || 'Unknown Location',
         discount: transaction.discount_applied,
-        transactionId: transaction.id, // Pass ACTUAL transaction ID
-        transactionTime: transaction.redeemed_at, // Pass actual time
+        transactionId: uniqueTransactionId, // Pass UNIQUE transaction ID for THIS transaction
+        transactionTime: transaction.redeemed_at,
+        vendorId: transaction.vendor_id,
       },
     });
   };
@@ -185,71 +190,76 @@ export default function HistoryScreen() {
             {Object.entries(groupedTransactions).map(([date, items]) => (
               <View key={date} style={styles.dateGroup}>
                 <Text style={styles.dateHeader}>{date}</Text>
-                {items.map((transaction) => (
-                  <TouchableOpacity
-                    key={transaction.id}
-                    style={styles.transactionCard}
-                    onPress={() => handleTransactionPress(transaction)}
-                    activeOpacity={0.7}
-                  >
-                    {/* Vendor Banner Image */}
-                    <View style={styles.vendorBanner}>
-                      {transaction.vendor?.logo_url?.startsWith('http') ? (
-                        <Image
-                          source={{ uri: transaction.vendor.logo_url }}
-                          style={styles.bannerImage}
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <View style={styles.bannerPlaceholder}>
-                          <Text style={styles.bannerEmoji}>
-                            {transaction.vendor?.logo_url || '🏪'}
+                {items.map((transaction) => {
+                  // Calculate unique verification code for THIS transaction
+                  const uniqueCode = transaction.id.substring(0, 8).toUpperCase();
+                  
+                  return (
+                    <TouchableOpacity
+                      key={transaction.id}
+                      style={styles.transactionCard}
+                      onPress={() => handleTransactionPress(transaction)}
+                      activeOpacity={0.7}
+                    >
+                      {/* Vendor Banner Image */}
+                      <View style={styles.vendorBanner}>
+                        {transaction.vendor?.logo_url?.startsWith('http') ? (
+                          <Image
+                            source={{ uri: transaction.vendor.logo_url }}
+                            style={styles.bannerImage}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View style={styles.bannerPlaceholder}>
+                            <Text style={styles.bannerEmoji}>
+                              {transaction.vendor?.logo_url || '🏪'}
+                            </Text>
+                          </View>
+                        )}
+                        
+                        {/* Discount Badge on Banner */}
+                        <View style={styles.bannerDiscountBadge}>
+                          <Text style={styles.bannerDiscountText}>
+                            {transaction.discount_applied}
                           </Text>
                         </View>
-                      )}
-                      
-                      {/* Discount Badge on Banner */}
-                      <View style={styles.bannerDiscountBadge}>
-                        <Text style={styles.bannerDiscountText}>
-                          {transaction.discount_applied}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Transaction Info Below Banner */}
-                    <View style={styles.transactionDetails}>
-                      <Text style={styles.vendorName} numberOfLines={1}>
-                        {transaction.vendor?.name || 'Unknown Vendor'}
-                      </Text>
-                      
-                      <View style={styles.detailRow}>
-                        <Clock color="#c084fc" size={14} />
-                        <Text style={styles.detailText}>
-                          {format(new Date(transaction.redeemed_at), 'h:mm a')}
-                        </Text>
                       </View>
 
-                      {/* SHOW VERIFICATION CODE IN HISTORY */}
-                      <View style={styles.verificationRow}>
-                        <Text style={styles.verificationLabel}>Code:</Text>
-                        <Text style={styles.verificationCode}>
-                          {transaction.id.substring(0, 8).toUpperCase()}
+                      {/* Transaction Info Below Banner */}
+                      <View style={styles.transactionDetails}>
+                        <Text style={styles.vendorName} numberOfLines={1}>
+                          {transaction.vendor?.name || 'Unknown Vendor'}
                         </Text>
-                      </View>
-
-                      {transaction.amount_saved > 0 && (
-                        <View style={styles.savedRow}>
-                          <Text style={styles.savedLabel}>Saved:</Text>
-                          <Text style={styles.savedAmount}>
-                            ₨{transaction.amount_saved}
+                        
+                        <View style={styles.detailRow}>
+                          <Clock color="#c084fc" size={14} />
+                          <Text style={styles.detailText}>
+                            {format(new Date(transaction.redeemed_at), 'h:mm a')}
                           </Text>
                         </View>
-                      )}
-                      
-                      <Text style={styles.tapToView}>Tap to view full details</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+
+                        {/* SHOW UNIQUE VERIFICATION CODE FOR THIS TRANSACTION */}
+                        <View style={styles.verificationRow}>
+                          <Text style={styles.verificationLabel}>Code:</Text>
+                          <Text style={styles.verificationCode}>
+                            {uniqueCode}
+                          </Text>
+                        </View>
+
+                        {transaction.amount_saved > 0 && (
+                          <View style={styles.savedRow}>
+                            <Text style={styles.savedLabel}>Saved:</Text>
+                            <Text style={styles.savedAmount}>
+                              ₨{transaction.amount_saved}
+                            </Text>
+                          </View>
+                        )}
+                        
+                        <Text style={styles.tapToView}>Tap to view full details</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             ))}
           </View>

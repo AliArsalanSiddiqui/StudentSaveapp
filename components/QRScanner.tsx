@@ -1,4 +1,4 @@
-// components/QRScanner.tsx - FIXED UNIQUE VERIFICATION CODE
+// components/QRScanner.tsx - FIXED TO PASS CORRECT TRANSACTION ID
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -213,7 +213,6 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
       console.log('✅ No duplicate redemption');
 
       // Step 5: Create transaction with unique ID
-      // CRITICAL FIX: Use Supabase's generated UUID as the verification code
       const { data: newTransaction, error: transactionError } = await supabase
         .from('transactions')
         .insert({
@@ -232,11 +231,19 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
         return;
       }
 
-      // CRITICAL: The transaction.id is the UNIQUE verification code
-      const verificationCode = newTransaction.id.substring(0, 8).toUpperCase();
-      console.log('✅ Transaction created with unique verification code:', verificationCode);
+      // CRITICAL FIX: Use the NEWLY CREATED transaction ID
+      const newTransactionId = newTransaction.id;
+      const newTransactionTime = newTransaction.redeemed_at;
+      const verificationCode = newTransactionId.substring(0, 8).toUpperCase();
+      
+      console.log('✅ NEW Transaction created:', {
+        transactionId: newTransactionId,
+        verificationCode: verificationCode,
+        vendorName: vendor.name,
+        time: newTransactionTime
+      });
 
-      // Step 6: Success - navigate to discount claimed screen with UNIQUE transaction ID
+      // Step 6: Success - navigate with THE NEW TRANSACTION DATA
       showAlert(
         'Success! 🎉',
         `${vendor.discount_text} discount redeemed at ${vendor.name}!`,
@@ -246,6 +253,14 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
             text: 'View Details',
             onPress: () => {
               onClose();
+              
+              // CRITICAL: Pass the NEWLY CREATED transaction ID and time
+              console.log('🚀 Navigating to discount-claimed with:', {
+                transactionId: newTransactionId,
+                verificationCode: verificationCode,
+                transactionTime: newTransactionTime
+              });
+              
               router.push({
                 pathname: '/(student)/discount-claimed',
                 params: {
@@ -254,8 +269,8 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
                   vendorLocation: vendor.location,
                   discount: vendor.discount_text,
                   vendorId: vendor.id,
-                  transactionId: newTransaction.id, // Pass FULL transaction ID
-                  transactionTime: newTransaction.redeemed_at,
+                  transactionId: newTransactionId, // NEWLY CREATED transaction ID
+                  transactionTime: newTransactionTime, // NEWLY CREATED transaction time
                 },
               });
             },

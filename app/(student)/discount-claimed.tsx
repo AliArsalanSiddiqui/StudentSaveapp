@@ -1,4 +1,4 @@
-// app/(student)/discount-claimed.tsx - FIXED UNIQUE VERIFICATION CODE DISPLAY
+// app/(student)/discount-claimed.tsx - FIXED TO USE EXACT TRANSACTION ID FROM PARAMS
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -41,34 +41,47 @@ export default function DiscountClaimedScreen() {
 
   const loadTransactionData = async () => {
     try {
+      // CRITICAL FIX: Use the EXACT transaction ID from params - NEVER fetch from database
       const transactionId = params.transactionId as string;
       const transactionTime = params.transactionTime as string;
       
+      console.log('📋 Loading discount claimed screen with:', {
+        transactionId,
+        transactionTime,
+        vendorName,
+      });
+      
+      // OPTION 1: Transaction ID and Time passed from params (most reliable)
       if (transactionId && transactionTime) {
-        // CRITICAL FIX: Use the ACTUAL transaction ID passed from QR scanner
-        console.log('📋 Loading transaction with ID:', transactionId);
-        
         const redeemedDate = new Date(transactionTime);
         
-        // Use the first 8 characters of the ACTUAL transaction ID
+        // CRITICAL: Use the EXACT transaction ID passed - this is the source of truth
         const uniqueVerificationCode = transactionId.substring(0, 8).toUpperCase();
         
-        console.log('🔐 Unique verification code:', uniqueVerificationCode);
+        console.log('✅ Discount Claimed Loading:', {
+          transactionId: transactionId,
+          verificationCode: uniqueVerificationCode,
+          vendorName: vendorName,
+          time: transactionTime
+        });
         
         setTransactionData({
           date: format(redeemedDate, 'MMM dd, yyyy'),
           time: format(redeemedDate, 'h:mm a'),
           verificationCode: uniqueVerificationCode,
-          transactionId: transactionId, // Store full transaction ID
+          transactionId: transactionId,
         });
         setLoading(false);
-      } else if (vendorId && user?.id) {
-        // Fallback: fetch latest transaction if params missing
-        console.log('⚠️ Missing transaction params, fetching latest...');
+        return; // STOP HERE - don't query database
+      }
+      
+      // OPTION 2: Only if params are missing, try to fetch from database (fallback only)
+      if (vendorId && user?.id) {
+        console.log('⚠️ Missing transaction params, fetching from database as fallback');
         await fetchLatestTransaction();
       } else {
-        // Last resort fallback
-        console.log('⚠️ Using emergency fallback');
+        // OPTION 3: Emergency fallback if everything fails
+        console.log('❌ All params missing, using emergency fallback');
         const now = new Date();
         const fallbackCode = `EMRG-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
         setTransactionData({
@@ -80,7 +93,7 @@ export default function DiscountClaimedScreen() {
         setLoading(false);
       }
     } catch (error) {
-      console.error('Error loading transaction data:', error);
+      console.error('❌ Error loading transaction data:', error);
       setLoading(false);
     }
   };
@@ -108,7 +121,7 @@ export default function DiscountClaimedScreen() {
         .single();
 
       if (error) {
-        console.error('Transaction fetch error:', error);
+        console.error('❌ Transaction fetch error:', error);
         // Use fallback
         const now = new Date();
         setTransactionData({
@@ -132,7 +145,7 @@ export default function DiscountClaimedScreen() {
         });
       }
     } catch (error) {
-      console.error('Error fetching transaction:', error);
+      console.error('❌ Error fetching transaction:', error);
       const now = new Date();
       setTransactionData({
         date: format(now, 'MMM dd, yyyy'),
@@ -233,7 +246,7 @@ export default function DiscountClaimedScreen() {
             </View>
           </View>
 
-          {/* VERIFICATION CODE - UNIQUE AND PROMINENT */}
+          {/* VERIFICATION CODE - UNIQUE FOR THIS TRANSACTION */}
           <View style={styles.verificationSection}>
             <Text style={styles.verificationLabel}>🔐 Verification Code</Text>
             <View style={styles.verificationCodeContainer}>
