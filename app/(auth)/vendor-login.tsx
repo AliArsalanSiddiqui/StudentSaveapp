@@ -345,8 +345,7 @@ export default function VendorLogin() {
                           disabled={loading}
                         >
                           <Text style={[styles.categoryText, category === cat && styles.categoryTextActive]}>
-                            {cat}
-                          </Text>
+                            {cat} </Text>
                         </TouchableOpacity>
                       ))}
                     </ScrollView>
@@ -370,7 +369,7 @@ export default function VendorLogin() {
                     <Text style={styles.label}>Discount Percentage *</Text>
                     <TextInput
                       style={styles.input}
-                      placeholder="20"
+                      placeholder="enter discount num"
                       placeholderTextColor="#c084fc"
                       value={discountPercentage}
                       onChangeText={setDiscountPercentage}

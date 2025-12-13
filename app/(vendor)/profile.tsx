@@ -333,7 +333,7 @@ export default function VendorProfile() {
     },
     {
       icon: HelpCircle,
-      label: 'Help & Support',
+      label: 'Help & Support ',
       onPress: () =>
         showAlert({
           type: 'info',
@@ -387,7 +387,7 @@ export default function VendorProfile() {
           </TouchableOpacity>
 
           <Text style={styles.vendorName}>{vendorRegistration.business_name}</Text>
-          <Text style={styles.vendorEmail}>{user?.email}</Text>
+          <Text style={styles.vendorEmail}>{user?.email} </Text>
 
           <View style={[styles.statusBadge, { backgroundColor: statusInfo.bgColor }]}>
             <View style={[styles.statusDot, { backgroundColor: statusInfo.color }]} />
@@ -513,8 +513,7 @@ export default function VendorProfile() {
                       onPress={() => setEditData({ ...editData, category: cat })}
                     >
                       <Text style={[styles.categoryText, editData.category === cat && styles.categoryTextActive]}>
-                        {cat}
-                      </Text>
+                        {cat} </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -640,7 +639,7 @@ const styles = StyleSheet.create({
   modalTitle: { color: 'white', fontSize: 20, fontWeight: 'bold' },
   modalCloseButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255, 255, 255, 0.1)', justifyContent: 'center', alignItems: 'center' },
   modalCloseText: { color: 'white', fontSize: 18 },
-  modalBody: { padding: 20 },
+  modalBody: { padding: 20, },
   inputGroup: { marginBottom: 20 },
   inputLabel: { color: 'white', fontSize: 14, fontWeight: '600', marginBottom: 8 },
   input: { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12, padding: 16, color: 'white', fontSize: 16 },
@@ -650,6 +649,6 @@ const styles = StyleSheet.create({
   categoryChipActive: { backgroundColor: '#c084fc', borderColor: '#c084fc' },
   categoryText: { color: 'white', fontSize: 14 },
   categoryTextActive: { color: '#1e1b4b', fontWeight: '600' },
-  saveButton: { backgroundColor: '#f59e0b', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 10 },
+  saveButton: { backgroundColor: '#f59e0b', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 10,marginBottom: 40 },
   saveButtonText: { color: '#1e1b4b', fontSize: 16, fontWeight: 'bold' },
 });

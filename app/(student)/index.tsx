@@ -224,8 +224,7 @@ export default function StudentHome() {
                   styles.categoryText,
                   selectedCategory === category && styles.categoryTextActive,
                 ]}>
-                {category}
-              </Text>
+                {category} </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>

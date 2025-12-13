@@ -1,4 +1,4 @@
-// app/(student)/discount-claimed.tsx - FIXED TO USE EXACT TRANSACTION ID FROM PARAMS
+// app/(student)/discount-claimed.tsx - FIXED TO ALWAYS USE PARAMS, NEVER DATABASE
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -12,168 +12,34 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { CheckCircle, X, Store, Calendar } from 'lucide-react-native';
 import { format } from 'date-fns';
-import { supabase } from '@/lib/supabase';
-import { useAuthStore } from '@/store/authStore';
 
 export default function DiscountClaimedScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const user = useAuthStore((state) => state.user);
   
   const vendorName = params.vendorName as string;
   const vendorLogo = params.vendorLogo as string;
   const vendorLocation = params.vendorLocation as string;
   const discount = params.discount as string;
-  const vendorId = params.vendorId as string;
+  const transactionId = params.transactionId as string;
+  const transactionTime = params.transactionTime as string;
   
-  const [transactionData, setTransactionData] = useState<{
-    date: string;
-    time: string;
-    verificationCode: string;
-    transactionId: string;
-  } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Generate verification code directly from the transaction ID passed in params
+  const verificationCode = transactionId ? transactionId.substring(0, 8).toUpperCase() : 'UNKNOWN';
   
-  const [loading, setLoading] = useState(true);
+  // Parse the transaction time
+  const redeemedDate = transactionTime ? new Date(transactionTime) : new Date();
+  const dateFormatted = format(redeemedDate, 'MMM dd, yyyy');
+  const timeFormatted = format(redeemedDate, 'h:mm a');
 
-  useEffect(() => {
-    loadTransactionData();
-  }, []);
-
-  const loadTransactionData = async () => {
-    try {
-      // CRITICAL FIX: Use the EXACT transaction ID from params - NEVER fetch from database
-      const transactionId = params.transactionId as string;
-      const transactionTime = params.transactionTime as string;
-      
-      console.log('📋 Loading discount claimed screen with:', {
-        transactionId,
-        transactionTime,
-        vendorName,
-      });
-      
-      // OPTION 1: Transaction ID and Time passed from params (most reliable)
-      if (transactionId && transactionTime) {
-        const redeemedDate = new Date(transactionTime);
-        
-        // CRITICAL: Use the EXACT transaction ID passed - this is the source of truth
-        const uniqueVerificationCode = transactionId.substring(0, 8).toUpperCase();
-        
-        console.log('✅ Discount Claimed Loading:', {
-          transactionId: transactionId,
-          verificationCode: uniqueVerificationCode,
-          vendorName: vendorName,
-          time: transactionTime
-        });
-        
-        setTransactionData({
-          date: format(redeemedDate, 'MMM dd, yyyy'),
-          time: format(redeemedDate, 'h:mm a'),
-          verificationCode: uniqueVerificationCode,
-          transactionId: transactionId,
-        });
-        setLoading(false);
-        return; // STOP HERE - don't query database
-      }
-      
-      // OPTION 2: Only if params are missing, try to fetch from database (fallback only)
-      if (vendorId && user?.id) {
-        console.log('⚠️ Missing transaction params, fetching from database as fallback');
-        await fetchLatestTransaction();
-      } else {
-        // OPTION 3: Emergency fallback if everything fails
-        console.log('❌ All params missing, using emergency fallback');
-        const now = new Date();
-        const fallbackCode = `EMRG-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-        setTransactionData({
-          date: format(now, 'MMM dd, yyyy'),
-          time: format(now, 'h:mm a'),
-          verificationCode: fallbackCode,
-          transactionId: 'unknown',
-        });
-        setLoading(false);
-      }
-    } catch (error) {
-      console.error('❌ Error loading transaction data:', error);
-      setLoading(false);
-    }
-  };
-
-  const fetchLatestTransaction = async () => {
-    if (!user?.id || !vendorId) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      console.log('🔍 Fetching latest transaction:', { userId: user.id, vendorId });
-
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('vendor_id', vendorId)
-        .gte('redeemed_at', today.toISOString())
-        .order('redeemed_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error) {
-        console.error('❌ Transaction fetch error:', error);
-        // Use fallback
-        const now = new Date();
-        setTransactionData({
-          date: format(now, 'MMM dd, yyyy'),
-          time: format(now, 'h:mm a'),
-          verificationCode: `FLBK-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-          transactionId: 'fallback',
-        });
-      } else if (data) {
-        console.log('✅ Transaction found:', data.id);
-        const redeemedDate = new Date(data.redeemed_at);
-        
-        // CRITICAL: Use the actual transaction ID from database
-        const uniqueVerificationCode = data.id.substring(0, 8).toUpperCase();
-        
-        setTransactionData({
-          date: format(redeemedDate, 'MMM dd, yyyy'),
-          time: format(redeemedDate, 'h:mm a'),
-          verificationCode: uniqueVerificationCode,
-          transactionId: data.id,
-        });
-      }
-    } catch (error) {
-      console.error('❌ Error fetching transaction:', error);
-      const now = new Date();
-      setTransactionData({
-        date: format(now, 'MMM dd, yyyy'),
-        time: format(now, 'h:mm a'),
-        verificationCode: `ERR-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
-        transactionId: 'error',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#c084fc" />
-        <Text style={styles.loadingText}>Loading...</Text>
-      </View>
-    );
-  }
-
-  if (!transactionData) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>Unable to load transaction data</Text>
-      </View>
-    );
-  }
+  console.log('✅ Discount Claimed Screen Loaded:', {
+    transactionId: transactionId,
+    verificationCode: verificationCode,
+    vendorName: vendorName,
+    time: transactionTime
+  });
 
   return (
     <ScrollView style={styles.container}>
@@ -241,24 +107,24 @@ export default function DiscountClaimedScreen() {
               <Calendar color="#c084fc" size={18} />
               <Text style={styles.detailLabel}>Date & Time:</Text>
               <Text style={styles.detailValue}>
-                {transactionData.date} at {transactionData.time}
+                {dateFormatted} at {timeFormatted}
               </Text>
             </View>
           </View>
 
-          {/* VERIFICATION CODE - UNIQUE FOR THIS TRANSACTION */}
+          {/* VERIFICATION CODE - GENERATED FROM PARAMS */}
           <View style={styles.verificationSection}>
             <Text style={styles.verificationLabel}>🔐 Verification Code</Text>
             <View style={styles.verificationCodeContainer}>
               <Text style={styles.verificationCode}>
-                {transactionData.verificationCode}
+                {verificationCode}
               </Text>
             </View>
             <Text style={styles.verificationHint}>
               ✓ This code is unique to this transaction
             </Text>
             <Text style={styles.verificationSubhint}>
-              Transaction ID: {transactionData.transactionId.substring(0, 12)}...
+              Transaction ID: {transactionId?.substring(0, 12)}...
             </Text>
           </View>
         </View>

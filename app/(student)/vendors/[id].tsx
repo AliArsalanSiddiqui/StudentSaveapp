@@ -154,7 +154,7 @@ export default function VendorDetailScreen() {
             <MapPin color="#c084fc" size={20} />
             <Text style={styles.sectionTitle}>Location</Text>
           </View>
-          <Text style={styles.locationText}>{vendor.location}</Text>
+          <Text style={styles.locationText}>{vendor.location} </Text>
         </View>
 
         {/* Description */}

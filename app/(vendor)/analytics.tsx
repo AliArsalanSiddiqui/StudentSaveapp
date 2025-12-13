@@ -369,8 +369,7 @@ export default function VendorAnalytics() {
               {currentGrowth > 0 ? '+' : ''}{currentGrowth}%
             </Text>
             <Text style={styles.growthLabel}>
-              vs {selectedPeriod === 'today' ? 'yesterday' : `last ${selectedPeriod}`}
-            </Text>
+              vs {selectedPeriod === 'today' ? 'yesterday' : `last ${selectedPeriod}`} </Text>
           </View>
         </View>
 
@@ -381,7 +380,7 @@ export default function VendorAnalytics() {
               <Users color="white" size={20} />
             </View>
             <Text style={styles.statValue}>{analytics.uniqueStudents}</Text>
-            <Text style={styles.statLabel}>Unique Students</Text>
+            <Text style={styles.statLabel}>Unique Students </Text>
           </View>
 
           <View style={styles.statCard}>
@@ -389,7 +388,7 @@ export default function VendorAnalytics() {
               <TrendingUp color="white" size={20} />
             </View>
             <Text style={styles.statValue}>{analytics.repeatCustomers}</Text>
-            <Text style={styles.statLabel}>Repeat Customers</Text>
+            <Text style={styles.statLabel}>Repeat Customers </Text>
           </View>
 
           <View style={styles.statCard}>
@@ -397,7 +396,7 @@ export default function VendorAnalytics() {
               <Activity color="white" size={20} />
             </View>
             <Text style={styles.statValue}>{analytics.avgScansPerDay}</Text>
-            <Text style={styles.statLabel}>Avg/Day</Text>
+            <Text style={styles.statLabel}>Avg/Day </Text>
           </View>
 
           <View style={styles.statCard}>
@@ -405,7 +404,7 @@ export default function VendorAnalytics() {
               <BarChart3 color="white" size={20} />
             </View>
             <Text style={styles.statValue}>{analytics.totalScans}</Text>
-            <Text style={styles.statLabel}>All Time</Text>
+            <Text style={styles.statLabel}>All Time </Text>
           </View>
         </View>
 

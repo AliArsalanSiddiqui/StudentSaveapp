@@ -1,4 +1,4 @@
-// app/(vendor)/index.tsx - WITH VERIFICATION CODE DISPLAY
+// app/(vendor)/index.tsx - FIXED: Clear latestScan state after notification closes
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -12,8 +12,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Store, TrendingUp, Users, Award, Bell, CheckCircle, Clock, Shield } from 'lucide-react-native';
-import { supabase } from '../../lib/supabase';
-import { useAuthStore } from '../../store/authStore';
+import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/store/authStore';
 import { format } from 'date-fns';
 
 interface RecentScan {
@@ -91,13 +91,15 @@ export default function VendorHome() {
               verification_code: transaction.id.substring(0, 8).toUpperCase(),
             };
 
-            // Show notification
+            // Show notification with THIS NEW SCAN's data
             setLatestScan(newScan);
             setShowNotification(true);
 
             // Auto-hide after 10 seconds
             setTimeout(() => {
               setShowNotification(false);
+              // CRITICAL FIX: Clear latestScan after notification closes
+              setTimeout(() => setLatestScan(null), 500);
             }, 10000);
 
             // Refresh stats and recent scans
@@ -212,6 +214,13 @@ export default function VendorHome() {
     setRefreshing(true);
     await fetchVendorData();
     setRefreshing(false);
+  };
+
+  // CRITICAL FIX: Close notification handler
+  const handleCloseNotification = () => {
+    setShowNotification(false);
+    // Clear latestScan state after animation completes
+    setTimeout(() => setLatestScan(null), 500);
   };
 
   if (loading) {
@@ -364,7 +373,7 @@ export default function VendorHome() {
               <Users color="white" size={24} />
             </View>
             <Text style={styles.statValue}>{stats.todayScans}</Text>
-            <Text style={styles.statLabel}>Today</Text>
+            <Text style={styles.statLabel}>Today </Text>
           </View>
 
           <View style={styles.statCard}>
@@ -372,7 +381,7 @@ export default function VendorHome() {
               <Clock color="white" size={24} />
             </View>
             <Text style={styles.statValue}>{stats.weekScans}</Text>
-            <Text style={styles.statLabel}>This Week</Text>
+            <Text style={styles.statLabel}>This Week </Text>
           </View>
 
           <View style={styles.statCard}>
@@ -380,7 +389,7 @@ export default function VendorHome() {
               <TrendingUp color="white" size={24} />
             </View>
             <Text style={styles.statValue}>{stats.totalScans}</Text>
-            <Text style={styles.statLabel}>All Time</Text>
+            <Text style={styles.statLabel}>All Time </Text>
           </View>
 
           <View style={styles.statCard}>
@@ -388,7 +397,7 @@ export default function VendorHome() {
               <Award color="white" size={24} />
             </View>
             <Text style={styles.statValue}>{vendor?.rating?.toFixed(1) || '0.0'}</Text>
-            <Text style={styles.statLabel}>Rating</Text>
+            <Text style={styles.statLabel}>Rating </Text>
           </View>
         </View>
 
@@ -428,7 +437,7 @@ export default function VendorHome() {
                     </View>
                   </View>
 
-                  {/* VERIFICATION CODE - PROMINENT DISPLAY */}
+                  {/* VERIFICATION CODE - UNIQUE FOR EACH SCAN */}
                   <View style={styles.verificationSection}>
                     <View style={styles.verificationHeader}>
                       <Shield color="#c084fc" size={18} />
@@ -492,7 +501,7 @@ export default function VendorHome() {
         visible={showNotification}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowNotification(false)}
+        onRequestClose={handleCloseNotification}
       >
         <View style={styles.notificationOverlay}>
           <View style={styles.notificationCard}>
@@ -510,7 +519,7 @@ export default function VendorHome() {
                   </Text>
                 </View>
                 
-                {/* VERIFICATION CODE IN NOTIFICATION */}
+                {/* VERIFICATION CODE IN NOTIFICATION - FROM LATEST SCAN */}
                 <View style={styles.notificationVerification}>
                   <View style={styles.notificationVerificationHeader}>
                     <Shield color="#c084fc" size={24} />
@@ -529,7 +538,7 @@ export default function VendorHome() {
 
             <TouchableOpacity
               style={styles.notificationButton}
-              onPress={() => setShowNotification(false)}
+              onPress={handleCloseNotification}
             >
               <Text style={styles.notificationButtonText}>Got It</Text>
             </TouchableOpacity>
@@ -540,6 +549,7 @@ export default function VendorHome() {
   );
 }
 
+// Styles remain the same
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1e1b4b' },
   loadingContainer: { flex: 1, backgroundColor: '#1e1b4b', justifyContent: 'center', alignItems: 'center' },
@@ -566,7 +576,7 @@ const styles = StyleSheet.create({
   rejectedMessage: { color: '#c084fc', fontSize: 16, textAlign: 'center', lineHeight: 24, marginBottom: 32 },
   vendorCard: { margin: 16, padding: 24, borderRadius: 20, backgroundColor: 'rgba(245, 158, 11, 0.2)', borderWidth: 2, borderColor: '#f59e0b', alignItems: 'center' },
   vendorLogo: { fontSize: 48, marginBottom: 12 },
-  vendorImage:{ width: 400, height: 400 },
+  vendorImage:{ width: 350, height: 350, borderRadius: 50 },
   vendorName: { color: 'white', fontSize: 24, fontWeight: 'bold', marginBottom: 8 },
   statusBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, gap: 6 },
   statusDot: { width: 8, height: 8, borderRadius: 4 },

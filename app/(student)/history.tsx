@@ -167,7 +167,7 @@ export default function HistoryScreen() {
               <Store color="#f59e0b" size={24} />
             </View>
             <Text style={styles.statValue}>{stats.favoriteVendors}</Text>
-            <Text style={styles.statLabel}>Favorites</Text>
+            <Text style={styles.statLabel}>Favorites </Text>
           </View>
         </View>
 
@@ -220,8 +220,7 @@ export default function HistoryScreen() {
                         {/* Discount Badge on Banner */}
                         <View style={styles.bannerDiscountBadge}>
                           <Text style={styles.bannerDiscountText}>
-                            {transaction.discount_applied}
-                          </Text>
+                            {transaction.discount_applied}</Text>
                         </View>
                       </View>
 
@@ -234,8 +233,7 @@ export default function HistoryScreen() {
                         <View style={styles.detailRow}>
                           <Clock color="#c084fc" size={14} />
                           <Text style={styles.detailText}>
-                            {format(new Date(transaction.redeemed_at), 'h:mm a')}
-                          </Text>
+                            {format(new Date(transaction.redeemed_at), 'h:mm a')} </Text>
                         </View>
 
                         {/* SHOW UNIQUE VERIFICATION CODE FOR THIS TRANSACTION */}

@@ -337,8 +337,8 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
               {processing 
                 ? 'Processing...' 
                 : restrictToVendorId 
-                  ? 'Point camera at this vendor\'s QR code'
-                  : 'Point camera at vendor QR code'
+                  ? 'Point camera vendor\'s QR code '
+                  : 'Point camera at vendor QR code '
               }
             </Text>
           </View>
