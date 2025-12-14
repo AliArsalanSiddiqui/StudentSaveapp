@@ -1,3 +1,4 @@
+// app/(student)/vendors/[id].tsx - UPDATED WITH FUNCTIONAL FAVORITES
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -6,7 +7,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Modal,
-  Image
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MapPin, Heart, Star, Clock, ChevronLeft, QrCode } from 'lucide-react-native';
@@ -14,14 +16,18 @@ import { Vendor } from '../../../types/index';
 import { useAuthStore } from '../../../store/authStore';
 import { fetchVendorById, toggleFavorite, isFavorite } from '../../../lib/api';
 import QRScanner from '../../../components/QRScanner';
+import CustomAlert, { useCustomAlert } from '../../../components/CustomAlert';
 
 export default function VendorDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const user = useAuthStore((state) => state.user);
+  const { alertConfig, showAlert, Alert } = useCustomAlert();
+  
   const [vendor, setVendor] = useState<Vendor | null>(null);
   const [favorite, setFavorite] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
@@ -35,30 +41,73 @@ export default function VendorDetailScreen() {
     const data = await fetchVendorById(id as string);
     if (data) {
       setVendor(data);
+    } else {
+      showAlert({
+        type: 'error',
+        title: 'Error',
+        message: 'Vendor not found',
+      });
     }
     setLoading(false);
   };
 
   const checkFavorite = async () => {
-    if (user?.id) {
+    if (user?.id && id) {
       const isFav = await isFavorite(user.id, id as string);
       setFavorite(isFav);
     }
   };
 
   const handleToggleFavorite = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      showAlert({
+        type: 'warning',
+        title: 'Sign In Required',
+        message: 'Please sign in to add favorites',
+      });
+      return;
+    }
 
-    const success = await toggleFavorite(user.id, id as string);
-    if (success) {
-      setFavorite(!favorite);
+    if (!id) return;
+
+    setFavoriteLoading(true);
+
+    try {
+      const success = await toggleFavorite(user.id, id as string);
+      
+      if (success) {
+        const newFavoriteState = !favorite;
+        setFavorite(newFavoriteState);
+        
+        showAlert({
+          type: 'success',
+          title: newFavoriteState ? 'Added to Favorites! ❤️' : 'Removed from Favorites',
+          message: newFavoriteState 
+            ? `${vendor?.name} has been added to your favorites`
+            : `${vendor?.name} has been removed from your favorites`,
+        });
+      } else {
+        showAlert({
+          type: 'error',
+          title: 'Error',
+          message: 'Failed to update favorite',
+        });
+      }
+    } catch (error) {
+      console.error('Favorite toggle error:', error);
+      showAlert({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to update favorite',
+      });
+    } finally {
+      setFavoriteLoading(false);
     }
   };
 
   const handleScanSuccess = (vendorId: string) => {
     setShowScanner(false);
     
-    // Navigate to discount claimed screen
     router.push({
       pathname: '/(student)/discount-claimed',
       params: {
@@ -74,6 +123,7 @@ export default function VendorDetailScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#c084fc" />
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
@@ -82,13 +132,21 @@ export default function VendorDetailScreen() {
   if (!vendor) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Vendor not found</Text>
+        <Text style={styles.errorText}>Vendor not found</Text>
+        <TouchableOpacity
+          style={styles.backToHomeButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.backToHomeText}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      <Alert />
+      
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Hero Banner */}
         <View style={styles.heroBanner}>
@@ -114,14 +172,22 @@ export default function VendorDetailScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.favoriteButton}
+              style={[
+                styles.favoriteButton,
+                favoriteLoading && styles.favoriteButtonDisabled,
+              ]}
               onPress={handleToggleFavorite}
+              disabled={favoriteLoading}
             >
-              <Heart
-                color={favorite ? '#ef4444' : 'white'}
-                size={24}
-                fill={favorite ? '#ef4444' : 'transparent'}
-              />
+              {favoriteLoading ? (
+                <ActivityIndicator color="white" size="small" />
+              ) : (
+                <Heart
+                  color={favorite ? '#ef4444' : 'white'}
+                  size={24}
+                  fill={favorite ? '#ef4444' : 'transparent'}
+                />
+              )}
             </TouchableOpacity>
           </View>
 
@@ -146,6 +212,14 @@ export default function VendorDetailScreen() {
               <Text style={styles.statLabel}>({vendor.total_reviews} reviews) </Text>
             </View>
           </View>
+
+          {/* Favorite Status Indicator */}
+          {favorite && (
+            <View style={styles.favoriteIndicator}>
+              <Heart color="#ef4444" size={16} fill="#ef4444" />
+              <Text style={styles.favoriteIndicatorText}>In Your Favorites</Text>
+            </View>
+          )}
         </View>
 
         {/* Location */}
@@ -154,7 +228,7 @@ export default function VendorDetailScreen() {
             <MapPin color="#c084fc" size={20} />
             <Text style={styles.sectionTitle}>Location</Text>
           </View>
-          <Text style={styles.locationText}>{vendor.location} </Text>
+          <Text style={styles.locationText}>{vendor.location}</Text>
         </View>
 
         {/* Description */}
@@ -200,12 +274,12 @@ export default function VendorDetailScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* QR Scanner Modal - NOW WITH VENDOR ID RESTRICTION */}
+      {/* QR Scanner Modal */}
       <Modal visible={showScanner} animationType="slide">
         <QRScanner
           onClose={() => setShowScanner(false)}
           onSuccess={handleScanSuccess}
-          restrictToVendorId={vendor.id} // Pass vendor ID to restrict scanning
+          restrictToVendorId={vendor.id}
         />
       </Modal>
     </View>
@@ -226,6 +300,23 @@ const styles = StyleSheet.create({
   loadingText: {
     color: 'white',
     fontSize: 16,
+    marginTop: 16,
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 16,
+    marginBottom: 24,
+  },
+  backToHomeButton: {
+    backgroundColor: '#c084fc',
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  backToHomeText: {
+    color: '#1e1b4b',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   content: {
     flex: 1,
@@ -275,6 +366,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  favoriteButtonDisabled: {
+    opacity: 0.6,
   },
   discountBadge: {
     position: 'absolute',
@@ -344,6 +438,23 @@ const styles = StyleSheet.create({
     color: '#c084fc',
     fontSize: 14,
     marginLeft: 4,
+  },
+  favoriteIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  favoriteIndicatorText: {
+    color: '#ef4444',
+    fontSize: 12,
+    fontWeight: '600',
   },
   section: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',

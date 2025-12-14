@@ -1,5 +1,6 @@
+// app/(student)/_layout.tsx - COMPLETE WITH FAVORITES
 import { Tabs } from 'expo-router';
-import { Home, QrCode, CreditCard, History, User } from 'lucide-react-native';
+import { Home, QrCode, Heart, History, User } from 'lucide-react-native';
 
 export default function StudentLayout() {
   return (
@@ -26,25 +27,10 @@ export default function StudentLayout() {
         }}
       />
       <Tabs.Screen
-        name="subscription"
-        options={{
-          title: 'Plans',
-          tabBarIcon: ({ color, size }) => (
-            <CreditCard color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="scanner"
         options={{
           title: 'Scan',
           tabBarIcon: ({ color, size }) => <QrCode color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="discount-claimed"
-        options={{
-          href: null, // Hide from tab bar
         }}
       />
       <Tabs.Screen
@@ -63,7 +49,19 @@ export default function StudentLayout() {
           tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
         }}
       />
-      {/* Hide these from tab bar */}
+      {/* Hidden screens - not in tab bar */}
+      <Tabs.Screen
+        name="subscription"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="discount-claimed"
+        options={{
+          href: null,
+        }}
+      />
       <Tabs.Screen
         name="vendors"
         options={{
@@ -91,7 +89,13 @@ export default function StudentLayout() {
       <Tabs.Screen
         name="manual-payment"
         options={{
-          href: null, // Hide from tab bar
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="favourites"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

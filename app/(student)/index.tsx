@@ -1,4 +1,4 @@
-// app/(student)/index.tsx - FIXED SUBSCRIPTION DETECTION
+// app/(student)/index.tsx - WITH FAVORITES HEART ICON IN HEADER
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Search, Bell, User } from 'lucide-react-native';
+import { Search, Bell, User, Heart } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { Vendor, UserSubscription } from '../../types/index';
 import { useAuthStore } from '../../store/authStore';
@@ -30,12 +30,14 @@ export default function StudentHome() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [loading, setLoading] = useState(true);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+  const [favoritesCount, setFavoritesCount] = useState(0);
 
   const categories = ['All', 'Restaurant', 'Cafe', 'Arcade'];
 
   useEffect(() => {
     fetchVendors();
     fetchSubscription();
+    fetchFavoritesCount();
     
     // Set up real-time subscription listener
     if (user?.id) {
@@ -56,8 +58,27 @@ export default function StudentHome() {
         )
         .subscribe();
 
+      // Set up favorites listener
+      const favoritesChannel = supabase
+        .channel(`student-home-favorites-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'favorites',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log('Favorites changed:', payload);
+            fetchFavoritesCount();
+          }
+        )
+        .subscribe();
+
       return () => {
         supabase.removeChannel(channel);
+        supabase.removeChannel(favoritesChannel);
       };
     }
   }, [user?.id]);
@@ -117,6 +138,23 @@ export default function StudentHome() {
     }
   };
 
+  const fetchFavoritesCount = async () => {
+    if (!user?.id) return;
+
+    try {
+      const { count, error } = await supabase
+        .from('favorites')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (!error) {
+        setFavoritesCount(count || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching favorites count:', error);
+    }
+  };
+
   const filteredVendors = vendors.filter((vendor) => {
     const matchesSearch = vendor.name
       .toLowerCase()
@@ -147,6 +185,18 @@ export default function StudentHome() {
             <Text style={styles.brandName}>StudentSave</Text>
           </View>
           <View style={styles.headerIcons}>
+            {/* Favorites Heart Icon with Badge */}
+            <TouchableOpacity 
+              style={styles.iconButton}
+              onPress={() => router.push('/(student)/favourites')}
+            >
+              <Heart color="white" size={24} />
+              {favoritesCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{favoritesCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
             <TouchableOpacity style={styles.iconButton}>
               <Bell color="white" size={24} />
             </TouchableOpacity>
@@ -307,6 +357,24 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     padding: 4,
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#ef4444',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   searchContainer: {
     flexDirection: 'row',
