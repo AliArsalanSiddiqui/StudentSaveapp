@@ -191,11 +191,6 @@ export default function StudentHome() {
               onPress={() => router.push('/(student)/favourites')}
             >
               <Heart color="white" size={24} />
-              {favoritesCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{favoritesCount}</Text>
-                </View>
-              )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.iconButton}>
               <Bell color="white" size={24} />
