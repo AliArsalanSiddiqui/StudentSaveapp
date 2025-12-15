@@ -471,7 +471,7 @@ export default function VendorProfile() {
       </ScrollView>
 
       {/* FIXED EDIT MODAL */}
-      <Modal visible={showEditModal} animationType="slide" transparent>
+      <Modal visible={showEditModal} animationType="slide" transparent={true}>
         <KeyboardAvoidingView 
           style={styles.modalContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -647,7 +647,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e1b4b', 
     borderTopLeftRadius: 24, 
     borderTopRightRadius: 24, 
-    maxHeight: '90%', // Increased from 80% to 90%
+    maxHeight: '100%', // Increased from 80% to 90%
     flex: 1,
   },
   modalHeader: { 
