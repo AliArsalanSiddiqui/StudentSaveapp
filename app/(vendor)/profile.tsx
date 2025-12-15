@@ -327,12 +327,12 @@ export default function VendorProfile() {
     },
     {
       icon: HelpCircle,
-      label: 'Help & Support',
+      label: 'Help & Support ',
       onPress: () =>
         showAlert({
           type: 'info',
           title: 'Support',
-          message: 'Email: vendor-support@studentsave.com',
+          message: 'Email: studentsave25@gmail.com',
         }),
     },
   ];
