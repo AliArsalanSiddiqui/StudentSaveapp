@@ -35,6 +35,8 @@ import { supabase } from '@/lib/supabase';
 import CustomAlert, { useCustomAlert } from '@/components/CustomAlert';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import { Dimensions } from 'react-native';
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function VendorProfile() {
   const router = useRouter();
@@ -56,7 +58,7 @@ export default function VendorProfile() {
   });
 
   const categories = ['Restaurant', 'Cafe', 'Arcade', 'Clothing', 'Entertainment'];
-
+  
   useEffect(() => {
     loadVendorData();
   }, [user]);
@@ -473,10 +475,7 @@ export default function VendorProfile() {
 
       {/* FIXED EDIT MODAL */}
       <Modal visible={showEditModal} animationType="slide" transparent>
-        <KeyboardAvoidingView 
-          style={styles.modalContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
+        <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Profile</Text>
@@ -487,15 +486,12 @@ export default function VendorProfile() {
                 <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView 
-              style={styles.modalBody}
-              contentContainerStyle={styles.modalBodyContent}
-              showsVerticalScrollIndicator={true}
-              bounces={true}
-              overScrollMode="always"
-              nestedScrollEnabled={true}
-              keyboardShouldPersistTaps="handled"
-            >
+            <View style={{ flex: 1 }}>
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator
+      contentContainerStyle={styles.modalBodyContent}
+    >
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Business Name</Text>
                 <TextInput
@@ -592,12 +588,10 @@ export default function VendorProfile() {
               <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
                 <Text style={styles.saveButtonText}>Save Changes</Text>
               </TouchableOpacity>
-
-              {/* CRITICAL: Large bottom spacing for Android */}
-              <View style={{ height: 350 }} />
             </ScrollView>
+            </View>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </LinearGradient>
   );
@@ -645,15 +639,14 @@ const styles = StyleSheet.create({
  modalContainer: { 
     flex: 1, 
     backgroundColor: 'rgba(0, 0, 0, 0.7)', 
-    justifyContent: 'flex-end' 
+    justifyContent: 'flex-end'
   },
-  modalContent: { 
-    backgroundColor: '#1e1b4b', 
-    borderTopLeftRadius: 24, 
-    borderTopRightRadius: 24, 
-    height: '95%',
-    maxHeight: '95%', // Enforce max height
-  },
+  modalContent: {
+  backgroundColor: '#1e1b4b',
+  borderTopLeftRadius: 24,
+  borderTopRightRadius: 24,
+  height: SCREEN_HEIGHT * 0.95, // 🔥 FORCE height
+},
   modalHeader: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
@@ -678,11 +671,10 @@ const styles = StyleSheet.create({
     minHeight: 0, // Critical for Android scrolling
   },
   modalBodyContent: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 300, // Extra large bottom padding for Android
-    flexGrow: 1, // Allow content to grow
-  },
+  paddingHorizontal: 20,
+  paddingTop: 20,
+  paddingBottom: 80,   // NORMAL padding, no hacks
+},
   inputGroup: { marginBottom: 20 },
   inputLabel: { color: 'white', fontSize: 14, fontWeight: '600', marginBottom: 8 },
   input: { 
