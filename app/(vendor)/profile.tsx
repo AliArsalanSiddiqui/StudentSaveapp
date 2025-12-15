@@ -332,7 +332,7 @@ export default function VendorProfile() {
         showAlert({
           type: 'info',
           title: 'Support',
-          message: 'Email: studentsave25@gmail.com\n Phone: 03332859061',
+          message: 'Email: studentsave25@gmail.com \n Phone: 03332859061',
         }),
     },
   ];
@@ -471,7 +471,7 @@ export default function VendorProfile() {
       </ScrollView>
 
       {/* FIXED EDIT MODAL */}
-      <Modal visible={showEditModal} animationType="slide" transparent={true}>
+      <Modal visible={showEditModal} animationType="slide" transparent>
         <KeyboardAvoidingView 
           style={styles.modalContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -490,7 +490,9 @@ export default function VendorProfile() {
             <ScrollView 
               style={styles.modalBody}
               contentContainerStyle={styles.modalBodyContent}
-              showsVerticalScrollIndicator={false}
+              showsVerticalScrollIndicator={true}
+              bounces={true}
+              overScrollMode="always"
             >
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Business Name</Text>
@@ -589,8 +591,8 @@ export default function VendorProfile() {
                 <Text style={styles.saveButtonText}>Save Changes</Text>
               </TouchableOpacity>
 
-              {/* Extra bottom padding for Android */}
-              <View style={{ height: 60 }} />
+              {/* CRITICAL: Large bottom spacing for Android */}
+              <View style={{ height: 200 }} />
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
@@ -637,18 +639,17 @@ const styles = StyleSheet.create({
   logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(239, 68, 68, 0.2)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.3)', gap: 8 },
   logoutButtonText: { color: '#ef4444', fontSize: 16, fontWeight: '600' },
   
-  // FIXED MODAL STYLES
+  // COMPLETELY FIXED MODAL STYLES
   modalContainer: { 
     flex: 1, 
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', 
+    backgroundColor: 'rgba(0, 0, 0, 0.7)', 
     justifyContent: 'flex-end' 
   },
   modalContent: { 
     backgroundColor: '#1e1b4b', 
     borderTopLeftRadius: 24, 
     borderTopRightRadius: 24, 
-    maxHeight: '100%', // Increased from 80% to 90%
-    flex: 1,
+    height: '95%', // Fixed height instead of maxHeight
   },
   modalHeader: { 
     flexDirection: 'row', 
@@ -656,7 +657,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     padding: 20, 
     borderBottomWidth: 1, 
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)' 
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#1e1b4b',
   },
   modalTitle: { color: 'white', fontSize: 20, fontWeight: 'bold' },
   modalCloseButton: { 
@@ -669,11 +671,12 @@ const styles = StyleSheet.create({
   },
   modalCloseText: { color: 'white', fontSize: 18 },
   modalBody: { 
-    flex: 1, // Make it flexible
+    flex: 1,
   },
   modalBodyContent: {
-    padding: 20,
-    paddingBottom: Platform.OS === 'android' ? 100 : 60, // Extra padding for Android
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 150, // Much larger bottom padding
   },
   inputGroup: { marginBottom: 20 },
   inputLabel: { color: 'white', fontSize: 14, fontWeight: '600', marginBottom: 8 },
