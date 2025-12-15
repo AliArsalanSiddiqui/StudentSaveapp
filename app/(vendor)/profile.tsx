@@ -474,7 +474,8 @@ export default function VendorProfile() {
       <Modal visible={showEditModal} animationType="slide" transparent>
         <KeyboardAvoidingView 
           style={styles.modalContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          
         >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -640,7 +641,7 @@ const styles = StyleSheet.create({
   logoutButtonText: { color: '#ef4444', fontSize: 16, fontWeight: '600' },
   
   // COMPLETELY FIXED MODAL STYLES
-  modalContainer: { 
+ modalContainer: { 
     flex: 1, 
     backgroundColor: 'rgba(0, 0, 0, 0.7)', 
     justifyContent: 'flex-end' 
@@ -649,7 +650,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e1b4b', 
     borderTopLeftRadius: 24, 
     borderTopRightRadius: 24, 
-    height: '95%', // Fixed height instead of maxHeight
+    height: '95%',
+    maxHeight: '95%', // Enforce max height
   },
   modalHeader: { 
     flexDirection: 'row', 
@@ -672,11 +674,13 @@ const styles = StyleSheet.create({
   modalCloseText: { color: 'white', fontSize: 18 },
   modalBody: { 
     flex: 1,
+    minHeight: 0, // Critical for Android scrolling
   },
   modalBodyContent: {
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 150, // Much larger bottom padding
+    paddingBottom: 300, // Extra large bottom padding for Android
+    flexGrow: 1, // Allow content to grow
   },
   inputGroup: { marginBottom: 20 },
   inputLabel: { color: 'white', fontSize: 14, fontWeight: '600', marginBottom: 8 },
