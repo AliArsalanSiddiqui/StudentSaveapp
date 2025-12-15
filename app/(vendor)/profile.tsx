@@ -332,7 +332,7 @@ export default function VendorProfile() {
         showAlert({
           type: 'info',
           title: 'Support',
-          message: 'Email: studentsave25@gmail.com',
+          message: 'Email: studentsave25@gmail.com\n Phone: 03332859061',
         }),
     },
   ];

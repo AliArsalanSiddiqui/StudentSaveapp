@@ -333,29 +333,6 @@ export default function SubscriptionScreen() {
           />
         }
       >
-        {!currentSubscription && (
-          <View style={styles.testSection}>
-            <View style={styles.testBanner}>
-              <Zap color="#fbbf24" size={24} />
-              <Text style={styles.testTitle}>Testing Mode</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.dummyButton}
-              onPress={activateTestSubscription}
-              disabled={processingPlanId === 'test'}
-            >
-              {processingPlanId === 'test' ? (
-                <ActivityIndicator color="#1e1b4b" />
-              ) : (
-                <Text style={styles.dummyButtonText}>⚡ Activate Test Subscription</Text>
-              )}
-            </TouchableOpacity>
-            <Text style={styles.testNote}>
-              For testing purposes only. Activates monthly subscription.
-            </Text>
-          </View>
-        )}
-
         {currentSubscription && (
           <View style={styles.currentSubCard}>
             <View style={styles.crownIcon}>

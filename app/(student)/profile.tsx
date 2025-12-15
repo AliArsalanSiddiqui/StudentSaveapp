@@ -122,7 +122,7 @@ export default function ProfileScreen() {
     {
       icon: HelpCircle,
       label: 'Help & Support ',
-      onPress: () => showAlert('Support', 'Email: studentsave25@gmail.com', 'info'),
+      onPress: () => showAlert('Support', 'Email: studentsave25@gmail.com \n Phone: 03332859061', 'info'),
     },
     {
       icon: Shield,
