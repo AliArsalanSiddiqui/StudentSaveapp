@@ -1,4 +1,4 @@
-// app/(vendor)/profile.tsx - WITH LOGO UPLOAD FUNCTIONALITY
+// app/(vendor)/profile.tsx - FIXED SCROLLING ISSUE IN EDIT MODAL
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -10,6 +10,8 @@ import {
   Modal,
   Image,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {
   ChevronLeft,
@@ -130,7 +132,6 @@ export default function VendorProfile() {
 
       console.log('📤 Uploading logo:', fileName);
 
-      // 1️⃣ Create signed upload URL
       const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from('vendor-logos')
         .createSignedUploadUrl(fileName);
@@ -140,7 +141,6 @@ export default function VendorProfile() {
         throw new Error('Failed to create upload URL');
       }
 
-      // 2️⃣ Upload file using FileSystem
       const uploadResult = await FileSystem.uploadAsync(
         signedUrlData.signedUrl,
         imageUri,
@@ -159,7 +159,6 @@ export default function VendorProfile() {
 
       console.log('✅ Logo uploaded successfully');
 
-      // 3️⃣ Get public URL
       const { data: publicData } = supabase.storage
         .from('vendor-logos')
         .getPublicUrl(fileName);
@@ -167,7 +166,6 @@ export default function VendorProfile() {
       const logoUrl = publicData.publicUrl;
       console.log('🔗 Public URL:', logoUrl);
 
-      // 4️⃣ Update vendor_registrations
       const { error: updateError } = await supabase
         .from('vendor_registrations')
         .update({
@@ -181,7 +179,6 @@ export default function VendorProfile() {
         throw updateError;
       }
 
-      // 5️⃣ If verified, also update vendors table
       if (vendorRegistration.verified) {
         await supabase
           .from('vendors')
@@ -191,7 +188,6 @@ export default function VendorProfile() {
 
       console.log('✅ Database updated with logo URL');
 
-      // Update local state
       setEditData({ ...editData, logo_url: logoUrl });
       await loadVendorData();
 
@@ -244,7 +240,6 @@ export default function VendorProfile() {
 
       if (regError) throw regError;
 
-      // Update user phone
       const { error: userError } = await supabase
         .from('users')
         .update({ phone: editData.phone })
@@ -252,7 +247,6 @@ export default function VendorProfile() {
 
       if (userError) throw userError;
 
-      // If verified, sync to vendors table
       if (vendorRegistration.verified) {
         await supabase
           .from('vendors')
@@ -333,7 +327,7 @@ export default function VendorProfile() {
     },
     {
       icon: HelpCircle,
-      label: 'Help & Support ',
+      label: 'Help & Support',
       onPress: () =>
         showAlert({
           type: 'info',
@@ -351,7 +345,6 @@ export default function VendorProfile() {
         
         {/* Profile Card */}
         <View style={styles.profileCard}>
-          {/* Logo Upload Section */}
           <TouchableOpacity
             style={styles.logoUploadContainer}
             onPress={pickImage}
@@ -477,9 +470,12 @@ export default function VendorProfile() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Edit Modal */}
+      {/* FIXED EDIT MODAL */}
       <Modal visible={showEditModal} animationType="slide" transparent>
-        <View style={styles.modalContainer}>
+        <KeyboardAvoidingView 
+          style={styles.modalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Profile</Text>
@@ -491,7 +487,11 @@ export default function VendorProfile() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
+            <ScrollView 
+              style={styles.modalBody}
+              contentContainerStyle={styles.modalBodyContent}
+              showsVerticalScrollIndicator={false}
+            >
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Business Name</Text>
                 <TextInput
@@ -588,9 +588,12 @@ export default function VendorProfile() {
               <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
                 <Text style={styles.saveButtonText}>Save Changes</Text>
               </TouchableOpacity>
+
+              {/* Extra bottom padding for Android */}
+              <View style={{ height: 60 }} />
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </LinearGradient>
   );
@@ -633,22 +636,77 @@ const styles = StyleSheet.create({
   menuItemTextDisabled: { color: '#64748b' },
   logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(239, 68, 68, 0.2)', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.3)', gap: 8 },
   logoutButtonText: { color: '#ef4444', fontSize: 16, fontWeight: '600' },
-  modalContainer: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#1e1b4b', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '80%' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255, 255, 255, 0.1)' },
+  
+  // FIXED MODAL STYLES
+  modalContainer: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', 
+    justifyContent: 'flex-end' 
+  },
+  modalContent: { 
+    backgroundColor: '#1e1b4b', 
+    borderTopLeftRadius: 24, 
+    borderTopRightRadius: 24, 
+    maxHeight: '90%', // Increased from 80% to 90%
+    flex: 1,
+  },
+  modalHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    padding: 20, 
+    borderBottomWidth: 1, 
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)' 
+  },
   modalTitle: { color: 'white', fontSize: 20, fontWeight: 'bold' },
-  modalCloseButton: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255, 255, 255, 0.1)', justifyContent: 'center', alignItems: 'center' },
+  modalCloseButton: { 
+    width: 32, 
+    height: 32, 
+    borderRadius: 16, 
+    backgroundColor: 'rgba(255, 255, 255, 0.1)', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
   modalCloseText: { color: 'white', fontSize: 18 },
-  modalBody: { padding: 20, },
+  modalBody: { 
+    flex: 1, // Make it flexible
+  },
+  modalBodyContent: {
+    padding: 20,
+    paddingBottom: Platform.OS === 'android' ? 100 : 60, // Extra padding for Android
+  },
   inputGroup: { marginBottom: 20 },
   inputLabel: { color: 'white', fontSize: 14, fontWeight: '600', marginBottom: 8 },
-  input: { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12, padding: 16, color: 'white', fontSize: 16 },
+  input: { 
+    backgroundColor: 'rgba(255, 255, 255, 0.1)', 
+    borderWidth: 1, 
+    borderColor: 'rgba(255, 255, 255, 0.2)', 
+    borderRadius: 12, 
+    padding: 16, 
+    color: 'white', 
+    fontSize: 16 
+  },
   textArea: { height: 100, textAlignVertical: 'top' },
   categoriesScroll: { flexGrow: 0 },
-  categoryChip: { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 8 },
+  categoryChip: { 
+    backgroundColor: 'rgba(255, 255, 255, 0.1)', 
+    borderWidth: 1, 
+    borderColor: 'rgba(255, 255, 255, 0.2)', 
+    paddingHorizontal: 16, 
+    paddingVertical: 8, 
+    borderRadius: 20, 
+    marginRight: 8 
+  },
   categoryChipActive: { backgroundColor: '#c084fc', borderColor: '#c084fc' },
   categoryText: { color: 'white', fontSize: 14 },
   categoryTextActive: { color: '#1e1b4b', fontWeight: '600' },
-  saveButton: { backgroundColor: '#f59e0b', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 10,marginBottom: 40 },
+  saveButton: { 
+    backgroundColor: '#f59e0b', 
+    padding: 16, 
+    borderRadius: 12, 
+    alignItems: 'center', 
+    marginTop: 10,
+    marginBottom: 20, // Added margin bottom
+  },
   saveButtonText: { color: '#1e1b4b', fontSize: 16, fontWeight: 'bold' },
 });
