@@ -27,6 +27,7 @@ import {
   Upload,
   Camera,
 } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
@@ -475,7 +476,6 @@ export default function VendorProfile() {
         <KeyboardAvoidingView 
           style={styles.modalContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          
         >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -487,13 +487,14 @@ export default function VendorProfile() {
                 <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
-
             <ScrollView 
               style={styles.modalBody}
               contentContainerStyle={styles.modalBodyContent}
               showsVerticalScrollIndicator={true}
               bounces={true}
               overScrollMode="always"
+              nestedScrollEnabled={true}
+              keyboardShouldPersistTaps="handled"
             >
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Business Name</Text>
@@ -593,7 +594,7 @@ export default function VendorProfile() {
               </TouchableOpacity>
 
               {/* CRITICAL: Large bottom spacing for Android */}
-              <View style={{ height: 200 }} />
+              <View style={{ height: 350 }} />
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
