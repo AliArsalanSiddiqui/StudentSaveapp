@@ -36,9 +36,9 @@ export default function ManualPaymentScreen() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Account details from environment variables
-  const JAZZCASH_ACCOUNT = process.env.EXPO_PUBLIC_JAZZCASH_MANUAL_ACCOUNT || '03001234567';
+  const JAZZCASH_ACCOUNT = process.env.EXPO_PUBLIC_JAZZCASH_MANUAL_ACCOUNT || '03332859061';
   const JAZZCASH_NAME = process.env.EXPO_PUBLIC_JAZZCASH_ACCOUNT_NAME || 'StudentSave';
-  const EASYPAISA_ACCOUNT = process.env.EXPO_PUBLIC_EASYPAISA_MANUAL_ACCOUNT || '03001234567';
+  const EASYPAISA_ACCOUNT = process.env.EXPO_PUBLIC_EASYPAISA_MANUAL_ACCOUNT || '03332859061';
   const EASYPAISA_NAME = process.env.EXPO_PUBLIC_EASYPAISA_ACCOUNT_NAME || 'StudentSave';
 
   const copyToClipboard = async (text: string, field: string) => {
