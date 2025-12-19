@@ -1,4 +1,4 @@
-// app/(auth)/vendor-login.tsx - UPDATED WITH VERIFICATION ALERTS
+// app/(auth)/vendor-login.tsx - FULLY FIXED ALERTS AND NAVIGATION
 import React, { useState } from 'react';
 import {
   View,
@@ -135,7 +135,10 @@ export default function VendorLogin() {
         setDescription('');
         setTerms('');
 
-        // Show registration success alert
+        // ✅ CRITICAL FIX: Stop loading BEFORE showing alert
+        setLoading(false);
+
+        // Show registration success alert - DON'T navigate immediately
         showAlert({
           type: 'success',
           title: 'Registration Submitted Successfully! 🎉',
@@ -144,12 +147,16 @@ export default function VendorLogin() {
             {
               text: 'Got it!',
               onPress: () => {
-                router.replace('/(auth)/welcome');
+                // Small delay for smooth transition
+                setTimeout(() => {
+                  router.replace('/(auth)/welcome');
+                }, 300);
               },
               style: 'default',
             },
           ],
         });
+        return; // STOP execution - don't run finally block
 
       } else {
         // ============== LOGIN FLOW ==============
@@ -168,6 +175,8 @@ export default function VendorLogin() {
         if (error) throw error;
         if (!data.user) throw new Error('Login failed');
 
+        console.log('✅ Login successful, checking registration...');
+
         // Step 2: Check if vendor registration exists and is verified
         const { data: registration, error: regError } = await supabase
           .from('vendor_registrations')
@@ -175,50 +184,104 @@ export default function VendorLogin() {
           .eq('owner_id', data.user.id)
           .single();
 
+        console.log('Registration data:', registration);
+
         if (regError || !registration) {
+          console.log('❌ No registration found');
           await supabase.auth.signOut();
+          
+          // ✅ CRITICAL FIX: Stop loading BEFORE showing alert
+          setLoading(false);
+          
           showAlert({
             type: 'error',
             title: 'No Registration Found',
             message: 'No vendor registration found for this account. Please sign up first.',
+            buttons: [
+              {
+                text: 'OK',
+                onPress: () => {
+                  setTimeout(() => {
+                    router.replace('/(auth)/welcome');
+                  }, 300);
+                },
+                style: 'default',
+              },
+            ],
           });
-          setLoading(false);
-          return;
+          return; // STOP execution
         }
 
         // Check if rejected
         if (registration.rejected) {
+          console.log('❌ Registration rejected');
           await supabase.auth.signOut();
+          
+          // ✅ CRITICAL FIX: Stop loading BEFORE showing alert
+          setLoading(false);
+          
           showAlert({
             type: 'error',
             title: 'Registration Rejected',
             message: registration.rejection_reason || 'Your registration was rejected by admin. Please contact support.',
+            buttons: [
+              {
+                text: 'OK',
+                onPress: () => {
+                  setTimeout(() => {
+                    router.replace('/(auth)/welcome');
+                  }, 300);
+                },
+                style: 'default',
+              },
+            ],
           });
-          setLoading(false);
-          return;
+          return; // STOP execution
         }
 
         // Check if NOT verified - CRITICAL CHECK
         if (!registration.verified) {
+          console.log('⏳ Registration pending verification');
           await supabase.auth.signOut();
+          
+          // ✅ CRITICAL FIX: Stop loading BEFORE showing alert
+          setLoading(false);
+          
           showAlert({
             type: 'warning',
             title: 'Account Not Verified Yet ⏳',
             message: 'Your vendor registration is still pending admin approval.\n\nPlease wait for the verification email before attempting to login. This process usually takes 24-48 hours.\n\nThank you for your patience!',
+            buttons: [
+              {
+                text: 'OK',
+                onPress: () => {
+                  setTimeout(() => {
+                    router.replace('/(auth)/welcome');
+                  }, 300);
+                },
+                style: 'default',
+              },
+            ],
           });
-          setLoading(false);
-          return;
+          return; // STOP execution
         }
+
+        console.log('✅ Registration verified');
 
         // Step 3: Check if this is first login after verification
         const isFirstLogin = registration.first_login_completed === false || !registration.first_login_completed;
 
         if (isFirstLogin) {
+          console.log('🎉 First login after verification!');
+          
           // Mark first login as completed
           await supabase
             .from('vendor_registrations')
             .update({ first_login_completed: true })
             .eq('id', registration.id);
+
+          // ✅ CRITICAL FIX: Stop loading BEFORE showing alert
+          setLoading(false);
 
           // Show verification success alert
           showAlert({
@@ -229,15 +292,18 @@ export default function VendorLogin() {
               {
                 text: 'Get Started',
                 onPress: () => {
-                  router.replace('/(vendor)' as any);
+                  setTimeout(() => {
+                    router.replace('/(vendor)' as any);
+                  }, 300);
                 },
                 style: 'default',
               },
             ],
           });
-          setLoading(false);
-          return;
+          return; // STOP execution
         }
+
+        console.log('✅ Regular login for verified vendor');
 
         // Regular login for already verified vendors
         const { data: userProfile, error: profileError } = await supabase
@@ -253,33 +319,41 @@ export default function VendorLogin() {
 
         if (userProfile.role !== 'vendor') {
           await supabase.auth.signOut();
+          
+          // ✅ CRITICAL FIX: Stop loading BEFORE showing alert
+          setLoading(false);
+          
           showAlert({
             type: 'error',
             title: 'Invalid Account',
             message: 'This account is not registered as a vendor.',
           });
-          setLoading(false);
-          return;
+          return; // STOP execution
         }
 
         // Success - navigate to vendor dashboard
+        console.log('✅ Navigation to vendor dashboard');
+        setLoading(false); // Stop loading
         router.replace('/(vendor)' as any);
       }
     } catch (error: any) {
-      console.error('Auth error:', error);
+      console.error('❌ Auth error:', error);
+      setLoading(false); // Stop loading on error
+      
       showAlert({
         type: 'error',
         title: 'Error',
         message: error.message || 'Authentication failed. Please try again.',
       });
-    } finally {
-      setLoading(false);
     }
+    // Note: No finally block that sets loading to false - handled in each branch
   };
 
   return (
     <LinearGradient colors={['#1e1b4b', '#581c87', '#1e1b4b']} style={styles.container}>
+      {/* ✅ CRITICAL: Alert component MUST be rendered */}
       <Alert />
+      
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
