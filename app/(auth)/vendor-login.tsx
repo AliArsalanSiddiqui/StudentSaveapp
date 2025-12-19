@@ -1,4 +1,4 @@
-// app/(auth)/vendor-login.tsx - UPDATED WITH PROPER VENDOR REGISTRATION FLOW
+// app/(auth)/vendor-login.tsx - UPDATED WITH VERIFICATION ALERTS
 import React, { useState } from 'react';
 import {
   View,
@@ -88,7 +88,7 @@ export default function VendorLogin() {
             name: ownerName.trim(),
             phone: phone.trim(),
             role: 'vendor',
-            verified: false, // Not verified until admin approves
+            verified: false,
           })
           .eq('id', authData.user.id);
 
@@ -117,12 +117,11 @@ export default function VendorLogin() {
 
         if (registrationError) {
           console.error('Registration error:', registrationError);
-          // Clean up auth user if registration fails
           await supabase.auth.admin.deleteUser(authData.user.id);
           throw new Error('Failed to create vendor registration. Please try again.');
         }
 
-        // Step 5: Sign out immediately (they can't use the account until verified)
+        // Step 5: Sign out immediately
         await supabase.auth.signOut();
 
         // Clear all form fields
@@ -136,14 +135,17 @@ export default function VendorLogin() {
         setDescription('');
         setTerms('');
 
+        // Show registration success alert
         showAlert({
           type: 'success',
-          title: 'Registration Submitted! 📝',
-          message: 'Your vendor registration is pending admin approval. You will be notified via email once verified (usually within 24-48 hours). Please do NOT attempt to login until you receive verification confirmation.',
+          title: 'Registration Submitted Successfully! 🎉',
+          message: 'Thank you for registering with StudentSave!\n\nYour application is now under review by our admin team. This process typically takes 24-48 hours.\n\nYou will receive an email notification once your account is verified. Please do NOT attempt to login until you receive the verification confirmation.\n\nThank you for your patience!',
           buttons: [
             {
-              text: 'OK',
-              onPress: () => {},
+              text: 'Got it!',
+              onPress: () => {
+                router.replace('/(auth)/welcome');
+              },
               style: 'default',
             },
           ],
@@ -196,19 +198,48 @@ export default function VendorLogin() {
           return;
         }
 
-        // Check if verified
+        // Check if NOT verified - CRITICAL CHECK
         if (!registration.verified) {
           await supabase.auth.signOut();
           showAlert({
             type: 'warning',
-            title: 'Pending Verification',
-            message: 'Your vendor registration is still pending admin approval. Please wait for verification email.',
+            title: 'Account Not Verified Yet ⏳',
+            message: 'Your vendor registration is still pending admin approval.\n\nPlease wait for the verification email before attempting to login. This process usually takes 24-48 hours.\n\nThank you for your patience!',
           });
           setLoading(false);
           return;
         }
 
-        // Step 3: Verify user role
+        // Step 3: Check if this is first login after verification
+        const isFirstLogin = registration.first_login_completed === false || !registration.first_login_completed;
+
+        if (isFirstLogin) {
+          // Mark first login as completed
+          await supabase
+            .from('vendor_registrations')
+            .update({ first_login_completed: true })
+            .eq('id', registration.id);
+
+          // Show verification success alert
+          showAlert({
+            type: 'success',
+            title: 'Account Verified! ✅',
+            message: 'Congratulations! Your vendor account has been successfully verified.\n\nYou can now access your dashboard and start offering discounts to students.\n\nWelcome to StudentSave!',
+            buttons: [
+              {
+                text: 'Get Started',
+                onPress: () => {
+                  router.replace('/(vendor)' as any);
+                },
+                style: 'default',
+              },
+            ],
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Regular login for already verified vendors
         const { data: userProfile, error: profileError } = await supabase
           .from('users')
           .select('*')
@@ -231,7 +262,7 @@ export default function VendorLogin() {
           return;
         }
 
-        // Success - navigate to vendor dashboard (layout will handle verification check)
+        // Success - navigate to vendor dashboard
         router.replace('/(vendor)' as any);
       }
     } catch (error: any) {
@@ -345,7 +376,8 @@ export default function VendorLogin() {
                           disabled={loading}
                         >
                           <Text style={[styles.categoryText, category === cat && styles.categoryTextActive]}>
-                            {cat} </Text>
+                            {cat}
+                          </Text>
                         </TouchableOpacity>
                       ))}
                     </ScrollView>
@@ -369,7 +401,7 @@ export default function VendorLogin() {
                     <Text style={styles.label}>Discount Percentage *</Text>
                     <TextInput
                       style={styles.input}
-                      placeholder="enter discount num"
+                      placeholder="20"
                       placeholderTextColor="#c084fc"
                       value={discountPercentage}
                       onChangeText={setDiscountPercentage}
