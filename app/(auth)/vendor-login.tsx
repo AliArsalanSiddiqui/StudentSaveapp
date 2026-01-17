@@ -1,4 +1,4 @@
-// app/(auth)/vendor-login.tsx - FULLY FIXED ALERTS AND NAVIGATION
+// app/(auth)/vendor-login.tsx - FINAL FIX: NO AUTO NAVIGATION FOR UNVERIFIED
 import React, { useState } from 'react';
 import {
   View,
@@ -43,18 +43,25 @@ export default function VendorLogin() {
       return;
     }
 
+    if (!password.trim()) {
+      showAlert({ type: 'error', title: 'Error', message: 'Please enter your password' });
+      return;
+    }
+
     setLoading(true);
 
     try {
       if (isSignUp) {
         // ============== REGISTRATION FLOW ==============
+        console.log('📝 Starting registration...');
+        
         if (!businessName.trim() || !ownerName.trim() || !phone.trim() || !location.trim()) {
           showAlert({ type: 'error', title: 'Error', message: 'Please fill all required fields' });
           setLoading(false);
           return;
         }
 
-        if (!password.trim() || password.length < 6) {
+        if (password.length < 6) {
           showAlert({ type: 'error', title: 'Error', message: 'Password must be at least 6 characters' });
           setLoading(false);
           return;
@@ -76,13 +83,13 @@ export default function VendorLogin() {
         if (authError) throw authError;
         if (!authData.user) throw new Error('User creation failed');
 
-        console.log('Auth user created:', authData.user.id);
+        console.log('✅ Auth user created:', authData.user.id);
 
-        // Step 2: Wait for trigger to create user record
+        // Step 2: Wait for trigger
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Step 3: Update user profile
-        const { error: updateError } = await supabase
+        await supabase
           .from('users')
           .update({
             name: ownerName.trim(),
@@ -92,11 +99,7 @@ export default function VendorLogin() {
           })
           .eq('id', authData.user.id);
 
-        if (updateError) {
-          console.error('User profile update error:', updateError);
-        }
-
-        // Step 4: Create vendor registration (pending approval)
+        // Step 4: Create vendor registration
         const discountValue = parseInt(discountPercentage) || 20;
         const { error: registrationError } = await supabase
           .from('vendor_registrations')
@@ -113,18 +116,22 @@ export default function VendorLogin() {
             discount_text: `${discountValue}% OFF`,
             terms: terms.trim() || 'Valid for students only. ID required.',
             verified: false,
+            first_login_completed: false,
           });
 
         if (registrationError) {
-          console.error('Registration error:', registrationError);
-          await supabase.auth.admin.deleteUser(authData.user.id);
-          throw new Error('Failed to create vendor registration. Please try again.');
+          console.error('❌ Registration error:', registrationError);
+          await supabase.auth.signOut();
+          throw new Error('Failed to create vendor registration');
         }
 
-        // Step 5: Sign out immediately
-        await supabase.auth.signOut();
+        console.log('✅ Vendor registration created');
 
-        // Clear all form fields
+        // ⚠️ CRITICAL: Sign out IMMEDIATELY to prevent auto-navigation
+        await supabase.auth.signOut();
+        console.log('✅ Signed out after registration');
+
+        // Clear form
         setIsSignUp(false);
         setEmail('');
         setPassword('');
@@ -135,141 +142,141 @@ export default function VendorLogin() {
         setDescription('');
         setTerms('');
 
-        // ✅ CRITICAL FIX: Stop loading BEFORE showing alert
+        // Stop loading
         setLoading(false);
 
-        // Show registration success alert - DON'T navigate immediately
+        // Show alert - NO NAVIGATION until button clicked
         showAlert({
           type: 'success',
-          title: 'Registration Submitted Successfully! 🎉',
-          message: 'Thank you for registering with StudentSave!\n\nYour application is now under review by our admin team. This process typically takes 24-48 hours.\n\nYou will receive an email notification once your account is verified. Please do NOT attempt to login until you receive the verification confirmation.\n\nThank you for your patience!',
+          title: 'Registration Submitted! 🎉',
+          message: 'Your vendor registration has been submitted for review.\n\nOur admin team will verify your account within 24-48 hours.\n\nYou will receive an email once approved. Please do not attempt to login until verified.',
           buttons: [
             {
               text: 'Got it!',
               onPress: () => {
-                // Small delay for smooth transition
                 setTimeout(() => {
                   router.replace('/(auth)/welcome');
-                }, 300);
+                }, 200);
               },
               style: 'default',
             },
           ],
         });
-        return; // STOP execution - don't run finally block
 
       } else {
         // ============== LOGIN FLOW ==============
-        if (!password.trim()) {
-          showAlert({ type: 'error', title: 'Error', message: 'Please enter your password' });
-          setLoading(false);
-          return;
-        }
+        console.log('🔐 Starting login...');
 
-        // Step 1: Authenticate
+        // Step 1: Try to authenticate
         const { data, error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password: password.trim(),
         });
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ Login error:', error);
+          throw error;
+        }
         if (!data.user) throw new Error('Login failed');
 
-        console.log('✅ Login successful, checking registration...');
+        console.log('✅ Authentication successful');
 
-        // Step 2: Check if vendor registration exists and is verified
+        // Step 2: Check vendor registration
         const { data: registration, error: regError } = await supabase
           .from('vendor_registrations')
           .select('*')
           .eq('owner_id', data.user.id)
           .single();
 
-        console.log('Registration data:', registration);
-
         if (regError || !registration) {
           console.log('❌ No registration found');
-          await supabase.auth.signOut();
           
-          // ✅ CRITICAL FIX: Stop loading BEFORE showing alert
+          // Sign out IMMEDIATELY
+          await supabase.auth.signOut();
           setLoading(false);
           
           showAlert({
             type: 'error',
             title: 'No Registration Found',
-            message: 'No vendor registration found for this account. Please sign up first.',
+            message: 'No vendor registration exists for this account. Please sign up first.',
             buttons: [
               {
                 text: 'OK',
                 onPress: () => {
                   setTimeout(() => {
                     router.replace('/(auth)/welcome');
-                  }, 300);
+                  }, 200);
                 },
                 style: 'default',
               },
             ],
           });
-          return; // STOP execution
+          return;
         }
+
+        console.log('Registration found:', {
+          verified: registration.verified,
+          rejected: registration.rejected,
+          firstLogin: registration.first_login_completed,
+        });
 
         // Check if rejected
         if (registration.rejected) {
           console.log('❌ Registration rejected');
-          await supabase.auth.signOut();
           
-          // ✅ CRITICAL FIX: Stop loading BEFORE showing alert
+          await supabase.auth.signOut();
           setLoading(false);
           
           showAlert({
             type: 'error',
             title: 'Registration Rejected',
-            message: registration.rejection_reason || 'Your registration was rejected by admin. Please contact support.',
+            message: registration.rejection_reason || 'Your registration was rejected. Please contact support.',
             buttons: [
               {
                 text: 'OK',
                 onPress: () => {
                   setTimeout(() => {
                     router.replace('/(auth)/welcome');
-                  }, 300);
+                  }, 200);
                 },
                 style: 'default',
               },
             ],
           });
-          return; // STOP execution
+          return;
         }
 
-        // Check if NOT verified - CRITICAL CHECK
+        // ⚠️ CRITICAL CHECK: If NOT verified, sign out and show alert
         if (!registration.verified) {
-          console.log('⏳ Registration pending verification');
-          await supabase.auth.signOut();
+          console.log('⏳ Account not verified yet');
           
-          // ✅ CRITICAL FIX: Stop loading BEFORE showing alert
+          // Sign out IMMEDIATELY to prevent auto-navigation
+          await supabase.auth.signOut();
           setLoading(false);
           
           showAlert({
             type: 'warning',
-            title: 'Account Not Verified Yet ⏳',
-            message: 'Your vendor registration is still pending admin approval.\n\nPlease wait for the verification email before attempting to login. This process usually takes 24-48 hours.\n\nThank you for your patience!',
+            title: 'Account Not Verified ⏳',
+            message: 'Your vendor registration is still pending admin approval.\n\nPlease wait for verification email before attempting to login.\n\nThis usually takes 24-48 hours.',
             buttons: [
               {
                 text: 'OK',
                 onPress: () => {
                   setTimeout(() => {
                     router.replace('/(auth)/welcome');
-                  }, 300);
+                  }, 200);
                 },
                 style: 'default',
               },
             ],
           });
-          return; // STOP execution
+          return;
         }
 
-        console.log('✅ Registration verified');
+        console.log('✅ Account is verified!');
 
-        // Step 3: Check if this is first login after verification
-        const isFirstLogin = registration.first_login_completed === false || !registration.first_login_completed;
+        // Account is verified - check if first login
+        const isFirstLogin = !registration.first_login_completed;
 
         if (isFirstLogin) {
           console.log('🎉 First login after verification!');
@@ -280,65 +287,42 @@ export default function VendorLogin() {
             .update({ first_login_completed: true })
             .eq('id', registration.id);
 
-          // ✅ CRITICAL FIX: Stop loading BEFORE showing alert
+          // Stop loading
           setLoading(false);
 
-          // Show verification success alert
+          // Show welcome alert
           showAlert({
             type: 'success',
-            title: 'Account Verified! ✅',
-            message: 'Congratulations! Your vendor account has been successfully verified.\n\nYou can now access your dashboard and start offering discounts to students.\n\nWelcome to StudentSave!',
+            title: 'Welcome to StudentSave! ✅',
+            message: 'Your vendor account has been verified!\n\nYou can now access your dashboard and start offering exclusive discounts to students.',
             buttons: [
               {
                 text: 'Get Started',
                 onPress: () => {
+                  // Small delay before navigation
                   setTimeout(() => {
                     router.replace('/(vendor)' as any);
-                  }, 300);
+                  }, 200);
                 },
                 style: 'default',
               },
             ],
           });
-          return; // STOP execution
+          return;
         }
 
-        console.log('✅ Regular login for verified vendor');
-
-        // Regular login for already verified vendors
-        const { data: userProfile, error: profileError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
-
-        if (profileError || !userProfile) {
-          await supabase.auth.signOut();
-          throw new Error('Failed to load user profile');
-        }
-
-        if (userProfile.role !== 'vendor') {
-          await supabase.auth.signOut();
-          
-          // ✅ CRITICAL FIX: Stop loading BEFORE showing alert
-          setLoading(false);
-          
-          showAlert({
-            type: 'error',
-            title: 'Invalid Account',
-            message: 'This account is not registered as a vendor.',
-          });
-          return; // STOP execution
-        }
-
-        // Success - navigate to vendor dashboard
-        console.log('✅ Navigation to vendor dashboard');
-        setLoading(false); // Stop loading
+        // Regular login - verified vendor
+        console.log('✅ Regular login - navigating to dashboard');
+        
+        setLoading(false);
         router.replace('/(vendor)' as any);
       }
     } catch (error: any) {
       console.error('❌ Auth error:', error);
-      setLoading(false); // Stop loading on error
+      
+      // Make sure we're signed out on error
+      await supabase.auth.signOut();
+      setLoading(false);
       
       showAlert({
         type: 'error',
@@ -346,25 +330,21 @@ export default function VendorLogin() {
         message: error.message || 'Authentication failed. Please try again.',
       });
     }
-    // Note: No finally block that sets loading to false - handled in each branch
   };
 
   return (
     <LinearGradient colors={['#1e1b4b', '#581c87', '#1e1b4b']} style={styles.container}>
-      {/* ✅ CRITICAL: Alert component MUST be rendered */}
       <Alert />
       
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
-          {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
               <ChevronLeft color="white" size={24} />
             </TouchableOpacity>
           </View>
 
-          {/* Content */}
           <View style={styles.content}>
             <View style={styles.logoContainer}>
               <View style={styles.logo}>
@@ -377,7 +357,6 @@ export default function VendorLogin() {
               {isSignUp ? 'Join StudentSave and reach more customers' : 'Sign in to manage your discounts'}
             </Text>
 
-            {/* Form */}
             <View style={styles.form}>
               {isSignUp && (
                 <>

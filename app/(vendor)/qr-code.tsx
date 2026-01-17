@@ -262,14 +262,6 @@ export default function VendorQRCodeScreen() {
               {downloading ? 'Saving...' : 'Download'}
             </Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleRegenerateQRCode}
-          >
-            <RefreshCw color="#c084fc" size={24} />
-            <Text style={styles.actionButtonText}>Regenerate</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Instructions */}
