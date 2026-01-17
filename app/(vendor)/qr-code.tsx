@@ -185,9 +185,20 @@ export default function VendorQRCodeScreen() {
 
   if (!vendor) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.errorText}>Vendor not found </Text>
-      </View>
+      <View style={styles.pendingContainer}>
+                <View style={styles.pendingIcon}>
+                  <Text style={styles.pendingEmoji}>⏳</Text>
+                </View>
+                <Text style={styles.pendingTitle}>Pending Verification</Text>
+                <Text style={styles.pendingMessage}>
+                  Your vendor registration is being reviewed by our admin team.
+                  {'\n\n'}
+                  You will receive an email notification once your account is verified
+                  (usually within 24-48 hours).
+                  {'\n\n'}
+                  Thank you for your patience!
+                </Text>
+              </View>
     );
   }
 
@@ -333,4 +344,9 @@ const styles = StyleSheet.create({
   tipsCard: { backgroundColor: 'rgba(245, 158, 11, 0.1)', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.3)' },
   tipsTitle: { color: '#f59e0b', fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
   tipItem: { color: '#f59e0b', fontSize: 14, marginBottom: 10, lineHeight: 20 },
+   pendingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32,backgroundColor: '#1e1b4b' },
+  pendingIcon: { width: 120, height: 120, backgroundColor: 'rgba(245, 158, 11, 0.2)', borderRadius: 60, justifyContent: 'center', alignItems: 'center', marginBottom: 24, borderWidth: 3, borderColor: 'rgba(245, 158, 11, 0.4)' },
+  pendingEmoji: { fontSize: 64 },
+  pendingTitle: { color: 'white', fontSize: 28, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' },
+  pendingMessage: { color: '#c084fc', fontSize: 16, textAlign: 'center', lineHeight: 24, marginBottom: 32 },
 });

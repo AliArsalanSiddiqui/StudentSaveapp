@@ -1,4 +1,4 @@
-// app/(auth)/vendor-login.tsx - FINAL FIX: NO AUTO NAVIGATION FOR UNVERIFIED
+// app/(auth)/vendor-login.tsx - FIXED: Allow login/register, show pending state in dashboard
 import React, { useState } from 'react';
 import {
   View,
@@ -127,35 +127,19 @@ export default function VendorLogin() {
 
         console.log('✅ Vendor registration created');
 
-        // ⚠️ CRITICAL: Sign out IMMEDIATELY to prevent auto-navigation
-        await supabase.auth.signOut();
-        console.log('✅ Signed out after registration');
-
-        // Clear form
-        setIsSignUp(false);
-        setEmail('');
-        setPassword('');
-        setBusinessName('');
-        setOwnerName('');
-        setPhone('');
-        setLocation('');
-        setDescription('');
-        setTerms('');
-
-        // Stop loading
+        // ✅ NEW: Stay logged in and navigate to vendor dashboard
         setLoading(false);
-
-        // Show alert - NO NAVIGATION until button clicked
+        
         showAlert({
           type: 'success',
           title: 'Registration Submitted! 🎉',
-          message: 'Your vendor registration has been submitted for review.\n\nOur admin team will verify your account within 24-48 hours.\n\nYou will receive an email once approved. Please do not attempt to login until verified.',
+          message: 'Your account has been created! You can access your dashboard, but some features will be limited until admin verification (usually 24-48 hours).',
           buttons: [
             {
-              text: 'Got it!',
+              text: 'Go to Dashboard',
               onPress: () => {
                 setTimeout(() => {
-                  router.replace('/(auth)/welcome');
+                  router.replace('/(vendor)' as any);
                 }, 200);
               },
               style: 'default',
@@ -181,7 +165,7 @@ export default function VendorLogin() {
 
         console.log('✅ Authentication successful');
 
-        // Step 2: Check vendor registration
+        // Step 2: Check vendor registration exists
         const { data: registration, error: regError } = await supabase
           .from('vendor_registrations')
           .select('*')
@@ -191,7 +175,6 @@ export default function VendorLogin() {
         if (regError || !registration) {
           console.log('❌ No registration found');
           
-          // Sign out IMMEDIATELY
           await supabase.auth.signOut();
           setLoading(false);
           
@@ -214,10 +197,9 @@ export default function VendorLogin() {
           return;
         }
 
-        console.log('Registration found:', {
+        console.log('✅ Registration found:', {
           verified: registration.verified,
           rejected: registration.rejected,
-          firstLogin: registration.first_login_completed,
         });
 
         // Check if rejected
@@ -246,73 +228,9 @@ export default function VendorLogin() {
           return;
         }
 
-        // ⚠️ CRITICAL CHECK: If NOT verified, sign out and show alert
-        if (!registration.verified) {
-          console.log('⏳ Account not verified yet');
-          
-          // Sign out IMMEDIATELY to prevent auto-navigation
-          await supabase.auth.signOut();
-          setLoading(false);
-          
-          showAlert({
-            type: 'warning',
-            title: 'Account Not Verified ⏳',
-            message: 'Your vendor registration is still pending admin approval.\n\nPlease wait for verification email before attempting to login.\n\nThis usually takes 24-48 hours.',
-            buttons: [
-              {
-                text: 'OK',
-                onPress: () => {
-                  setTimeout(() => {
-                    router.replace('/(auth)/welcome');
-                  }, 200);
-                },
-                style: 'default',
-              },
-            ],
-          });
-          return;
-        }
-
-        console.log('✅ Account is verified!');
-
-        // Account is verified - check if first login
-        const isFirstLogin = !registration.first_login_completed;
-
-        if (isFirstLogin) {
-          console.log('🎉 First login after verification!');
-          
-          // Mark first login as completed
-          await supabase
-            .from('vendor_registrations')
-            .update({ first_login_completed: true })
-            .eq('id', registration.id);
-
-          // Stop loading
-          setLoading(false);
-
-          // Show welcome alert
-          showAlert({
-            type: 'success',
-            title: 'Welcome to StudentSave! ✅',
-            message: 'Your vendor account has been verified!\n\nYou can now access your dashboard and start offering exclusive discounts to students.',
-            buttons: [
-              {
-                text: 'Get Started',
-                onPress: () => {
-                  // Small delay before navigation
-                  setTimeout(() => {
-                    router.replace('/(vendor)' as any);
-                  }, 200);
-                },
-                style: 'default',
-              },
-            ],
-          });
-          return;
-        }
-
-        // Regular login - verified vendor
-        console.log('✅ Regular login - navigating to dashboard');
+        // ✅ NEW: Allow login regardless of verification status
+        // Dashboard will handle showing pending/verified states
+        console.log('✅ Login successful - navigating to dashboard');
         
         setLoading(false);
         router.replace('/(vendor)' as any);
@@ -320,7 +238,6 @@ export default function VendorLogin() {
     } catch (error: any) {
       console.error('❌ Auth error:', error);
       
-      // Make sure we're signed out on error
       await supabase.auth.signOut();
       setLoading(false);
       
@@ -517,7 +434,7 @@ export default function VendorLogin() {
                 disabled={loading}
               >
                 <Text style={styles.submitButtonText}>
-                  {loading ? 'Please wait...' : isSignUp ? 'Submit Registration' : 'Sign In'}
+                  {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
                 </Text>
               </TouchableOpacity>
 
@@ -544,7 +461,7 @@ export default function VendorLogin() {
             <View style={styles.infoBox}>
               <Text style={styles.infoText}>
                 {isSignUp
-                  ? '📝 Your registration will be reviewed by our team within 24-48 hours'
+                  ? '📝 You can access your dashboard after registration, but full features unlock after admin verification (24-48 hours)'
                   : '🔐 Your data is secure and encrypted'}
               </Text>
             </View>
