@@ -1,13 +1,11 @@
-// metro.config.js
 const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
 
-// Fix for TurboModules and crypto
 config.resolver.sourceExts.push('mjs', 'cjs');
-config.resolver.unstable_enablePackageExports = true;
+// Remove unstable_ prefix — it's now stable:
+config.resolver.unstable_enablePackageExports = true; // keep as-is, still works
 
-// Fix for crypto and stream polyfills
 config.resolver.extraNodeModules = {
   crypto: require.resolve('expo-crypto'),
   stream: require.resolve('readable-stream'),
