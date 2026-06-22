@@ -32,6 +32,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
+import { uploadToSupabaseStorage } from '@/lib/uploadFile';
 import CustomAlert, { useCustomAlert } from '@/components/CustomAlert';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
@@ -92,137 +93,112 @@ export default function VendorProfile() {
   };
 
   const pickImage = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (status !== 'granted') {
-        showAlert({
-          type: 'error',
-          title: 'Permission Required',
-          message: 'Please grant photo library access to upload logo',
-        });
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        await uploadLogo(result.assets[0].uri);
-      }
-    } catch (error: any) {
-      console.error('Image picker error:', error);
+  try {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+ 
+    if (status !== 'granted') {
       showAlert({
         type: 'error',
-        title: 'Error',
-        message: 'Failed to pick image: ' + error.message,
+        title: 'Permission Required',
+        message: 'Please grant photo library access to upload logo',
       });
+      return;
     }
-  };
+ 
+    const result = await ImagePicker.launchImageLibraryAsync({
+      // SDK 54 fix: deprecated MediaTypeOptions.Images → use array syntax
+      mediaTypes: ['images'] as any,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+ 
+    if (!result.canceled && result.assets[0]) {
+      await uploadLogo(result.assets[0].uri);
+    }
+  } catch (error: any) {
+    console.error('Image picker error:', error);
+    showAlert({
+      type: 'error',
+      title: 'Error',
+      message: 'Failed to pick image: ' + error.message,
+    });
+  }
+};
 
   const uploadLogo = async (imageUri: string): Promise<void> => {
-    if (!user?.id || !vendorRegistration?.id) return;
-
-    setUploadingLogo(true);
-
-    try {
-      const fileExt = imageUri.split('.').pop()?.toLowerCase() ?? 'jpg';
-      const fileName = `${vendorRegistration.id}/${Date.now()}.${fileExt}`;
-
-      console.log('📤 Uploading logo:', fileName);
-
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from('vendor-logos')
-        .createSignedUploadUrl(fileName);
-
-      if (signedUrlError || !signedUrlData) {
-        console.error('Signed URL error:', signedUrlError);
-        throw new Error('Failed to create upload URL');
-      }
-
-      const uploadResult = await FileSystem.uploadAsync(
-        signedUrlData.signedUrl,
-        imageUri,
-        {
-          httpMethod: 'PUT',
-          uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-          headers: {
-            'Content-Type': `image/${fileExt}`,
-          },
-        }
-      );
-
-      if (uploadResult.status !== 200) {
-        throw new Error(`Upload failed: ${uploadResult.status}`);
-      }
-
-      console.log('✅ Logo uploaded successfully');
-
-      const { data: publicData } = supabase.storage
-        .from('vendor-logos')
-        .getPublicUrl(fileName);
-
-      const logoUrl = publicData.publicUrl;
-      console.log('🔗 Public URL:', logoUrl);
-
-      const { error: updateError } = await supabase
-        .from('vendor_registrations')
-        .update({
-          logo_url: logoUrl,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', vendorRegistration.id);
-
-      if (updateError) {
-        console.error('Database update error:', updateError);
-        throw updateError;
-      }
-
-      if (vendorRegistration.verified) {
-        await supabase
-          .from('vendors')
-          .update({ logo_url: logoUrl })
-          .eq('id', vendorRegistration.id);
-      }
-
-      console.log('✅ Database updated with logo URL');
-
-      setEditData({ ...editData, logo_url: logoUrl });
-      await loadVendorData();
-
-      showAlert({
-        type: 'success',
-        title: 'Success! 🎉',
-        message: 'Logo uploaded successfully',
-      });
-
-    } catch (error: any) {
-      console.error('❌ Logo upload error:', error);
-      
-      let errorMessage = 'Failed to upload logo';
-      
-      if (error.message?.includes('BUCKET_NOT_FOUND')) {
-        errorMessage = 'Storage bucket not configured. Please contact support.';
-      } else if (error.message?.includes('PERMISSION')) {
-        errorMessage = 'Storage permissions error. Please contact support.';
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      showAlert({
-        type: 'error',
-        title: 'Upload Failed',
-        message: errorMessage,
-      });
-    } finally {
-      setUploadingLogo(false);
+  if (!user?.id || !vendorRegistration?.id) return;
+ 
+  setUploadingLogo(true);
+ 
+  try {
+    const fileExt = imageUri.split('.').pop()?.toLowerCase() ?? 'jpg';
+    const fileName = `${vendorRegistration.id}/${Date.now()}.${fileExt}`;
+ 
+    console.log('📤 Uploading logo:', fileName);
+ 
+    // SDK 54 fix: use fetch-based upload helper instead of FileSystem.uploadAsync
+    const logoUrl = await uploadToSupabaseStorage(
+      supabase,
+      'vendor-logos',
+      fileName,
+      imageUri,
+      `image/${fileExt}`
+    );
+ 
+    console.log('✅ Logo uploaded, URL:', logoUrl);
+ 
+    // Update vendor_registrations table
+    const { error: updateError } = await supabase
+      .from('vendor_registrations')
+      .update({
+        logo_url: logoUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', vendorRegistration.id);
+ 
+    if (updateError) {
+      console.error('Database update error:', updateError);
+      throw updateError;
     }
-  };
-
+ 
+    // Also update vendors table if verified
+    if (vendorRegistration.verified) {
+      await supabase
+        .from('vendors')
+        .update({ logo_url: logoUrl })
+        .eq('id', vendorRegistration.id);
+    }
+ 
+    console.log('✅ Database updated with logo URL');
+ 
+    setEditData((prev) => ({ ...prev, logo_url: logoUrl }));
+    await loadVendorData();
+ 
+    showAlert({
+      type: 'success',
+      title: 'Success! 🎉',
+      message: 'Logo uploaded successfully',
+    });
+  } catch (error: any) {
+    console.error('❌ Logo upload error:', error);
+ 
+    let errorMessage = 'Failed to upload logo';
+    if (error.message?.includes('BUCKET_NOT_FOUND')) {
+      errorMessage = 'Storage bucket not configured. Please contact support.';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+ 
+    showAlert({
+      type: 'error',
+      title: 'Upload Failed',
+      message: errorMessage,
+    });
+  } finally {
+    setUploadingLogo(false);
+  }
+};
   const handleSaveProfile = async () => {
     if (!vendorRegistration?.id) return;
 

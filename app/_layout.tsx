@@ -1,9 +1,10 @@
-// app/_layout.tsx - FIXED ROLE-BASED NAVIGATION
+// app/_layout.tsx - SDK 54 FIXED with SafeAreaProvider for Android edge-to-edge
 import '../lib/polyfills';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
@@ -18,10 +19,7 @@ function ErrorFallback({ error, resetErrorBoundary }: any) {
     <View style={styles.errorContainer}>
       <Text style={styles.errorTitle}>Something went wrong</Text>
       <Text style={styles.errorText}>{error?.message || 'Unknown error'}</Text>
-      <Text 
-        style={styles.errorButton} 
-        onPress={resetErrorBoundary}
-      >
+      <Text style={styles.errorButton} onPress={resetErrorBoundary}>
         Try Again
       </Text>
     </View>
@@ -67,7 +65,7 @@ export default function RootLayout() {
       }
     } catch (error: any) {
       console.error('Auth initialization error:', error);
-      
+
       if (retryCount < 2 && error.message?.includes('timeout')) {
         setRetryCount(retryCount + 1);
         setTimeout(() => initializeAuth(), 2000);
@@ -81,7 +79,7 @@ export default function RootLayout() {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
         async (event, session) => {
           console.log('Auth event:', event);
-          
+
           if (event === 'SIGNED_IN' && session?.user) {
             try {
               await fetchUserProfile(session.user.id);
@@ -122,40 +120,30 @@ export default function RootLayout() {
     }
   };
 
-  // Handle navigation with role-based routing
   useEffect(() => {
     if (!isReady || showSplash) return;
 
     const inAuthGroup = segments[0] === '(auth)';
     const inStudentGroup = segments[0] === '(student)';
     const inVendorGroup = segments[0] === '(vendor)';
-    
+
     console.log('Navigation check:', {
       hasUser: !!user,
       userRole: user?.role,
       currentSegment: segments[0],
-      inAuthGroup,
-      inStudentGroup,
-      inVendorGroup,
     });
 
-    // Not logged in - redirect to auth
     if (!user && !inAuthGroup) {
-      console.log('Not logged in, redirecting to welcome');
       router.replace('/(auth)/welcome');
       return;
     }
 
-    // Logged in - check role-based access
     if (user && inAuthGroup) {
-      console.log('Logged in, redirecting based on role:', user.role);
-      
       if (user.role === 'student') {
         router.replace('/(student)');
       } else if (user.role === 'vendor') {
         router.replace('/(vendor)' as any);
       } else {
-        // Unknown role, sign out
         console.warn('Unknown role:', user.role);
         useAuthStore.getState().signOut();
         router.replace('/(auth)/welcome');
@@ -163,13 +151,10 @@ export default function RootLayout() {
       return;
     }
 
-    // Prevent role mismatches
     if (user) {
       if (user.role === 'student' && inVendorGroup) {
-        console.log('Student accessing vendor area, redirecting');
         router.replace('/(student)');
       } else if (user.role === 'vendor' && inStudentGroup) {
-        console.log('Vendor accessing student area, redirecting');
         router.replace('/(vendor)' as any);
       }
     }
@@ -190,13 +175,17 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
+      {/* GestureHandlerRootView wraps SafeAreaProvider for correct inset propagation */}
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(student)" />
-          <Stack.Screen name="(vendor)" />
-        </Stack>
+        {/* SafeAreaProvider is required for useSafeAreaInsets + edge-to-edge Android */}
+        <SafeAreaProvider>
+          <StatusBar style="light" />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(student)" />
+            <Stack.Screen name="(vendor)" />
+          </Stack>
+        </SafeAreaProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>
   );

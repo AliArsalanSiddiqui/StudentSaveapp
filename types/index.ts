@@ -24,6 +24,7 @@ export interface Vendor {
   discount_text: string;
   logo_url?: string;
   location: string;
+  city?: string;
   latitude?: number;
   longitude?: number;
   rating: number;

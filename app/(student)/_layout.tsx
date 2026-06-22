@@ -1,6 +1,7 @@
-// app/(student)/_layout.tsx - COMPLETE WITH FAVORITES
+// app/(student)/_layout.tsx
 import { Tabs } from 'expo-router';
-import { Home, QrCode, Heart, History, User, IdCard, CreditCard } from 'lucide-react-native';
+import { Home, QrCode, Heart, History, User, CreditCard } from 'lucide-react-native';
+import { Platform } from 'react-native';
 
 export default function StudentLayout() {
   return (
@@ -11,8 +12,10 @@ export default function StudentLayout() {
           backgroundColor: '#1e1b4b',
           borderTopColor: 'rgba(255, 255, 255, 0.1)',
           borderTopWidth: 1,
-          height: 70,
-          paddingBottom: 10,
+          // SDK 54 + Android edge-to-edge fix:
+          // Android 15+ enables edge-to-edge by default, nav bar overlaps tabs
+          height: Platform.OS === 'android' ? 90 : 70,
+          paddingBottom: Platform.OS === 'android' ? 28 : 10,
           paddingTop: 10,
         },
         tabBarActiveTintColor: '#c084fc',
@@ -44,9 +47,7 @@ export default function StudentLayout() {
         name="history"
         options={{
           title: 'History',
-          tabBarIcon: ({ color, size }) => (
-            <History color={color} size={size} />
-          ),
+          tabBarIcon: ({ color, size }) => <History color={color} size={size} />,
         }}
       />
       <Tabs.Screen
@@ -56,50 +57,14 @@ export default function StudentLayout() {
           tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
         }}
       />
-      {/* Hidden screens - not in tab bar */}
-      
-      <Tabs.Screen
-        name="discount-claimed"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="vendors"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="payment"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="jazzcash-payment"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="easypaisa-payment"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="manual-payment"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="favourites"
-        options={{
-          href: null,
-        }}
-      />
+      {/* Hidden screens */}
+      <Tabs.Screen name="discount-claimed" options={{ href: null }} />
+      <Tabs.Screen name="vendors" options={{ href: null }} />
+      <Tabs.Screen name="payment" options={{ href: null }} />
+      <Tabs.Screen name="jazzcash-payment" options={{ href: null }} />
+      <Tabs.Screen name="easypaisa-payment" options={{ href: null }} />
+      <Tabs.Screen name="manual-payment" options={{ href: null }} />
+      <Tabs.Screen name="favourites" options={{ href: null }} />
     </Tabs>
   );
 }
