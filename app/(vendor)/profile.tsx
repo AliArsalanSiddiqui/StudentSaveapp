@@ -34,6 +34,7 @@ import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/lib/supabase';
 import { uploadToSupabaseStorage } from '@/lib/uploadFile';
 import CustomAlert, { useCustomAlert } from '@/components/CustomAlert';
+import VendorLocationPicker from '@/components/VendorLocationPicker';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { Dimensions } from 'react-native';
@@ -56,7 +57,11 @@ export default function VendorProfile() {
     terms: '',
     category: 'Restaurant',
     logo_url: '',
+    latitude: undefined as number | undefined,
+    longitude: undefined as number | undefined,
+    city: 'Karachi',
   });
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
 
   const categories = ['Restaurant', 'Cafe', 'Arcade', 'Clothing', 'Entertainment'];
   
@@ -85,6 +90,9 @@ export default function VendorProfile() {
           terms: data.terms || '',
           category: data.category,
           logo_url: data.logo_url || '',
+          latitude: data.latitude || undefined,
+          longitude: data.longitude || undefined,
+          city: data.city || 'Karachi',
         });
       }
     } catch (error) {
@@ -213,6 +221,9 @@ export default function VendorProfile() {
           discount_text: `${editData.discount_percentage}% OFF`,
           terms: editData.terms,
           category: editData.category,
+          latitude: editData.latitude,
+          longitude: editData.longitude,
+          city: editData.city,
           updated_at: new Date().toISOString(),
         })
         .eq('id', vendorRegistration.id);
@@ -237,6 +248,9 @@ export default function VendorProfile() {
             discount_text: `${editData.discount_percentage}% OFF`,
             terms: editData.terms,
             category: editData.category,
+            latitude: editData.latitude,
+            longitude: editData.longitude,
+            city: editData.city,
           })
           .eq('id', vendorRegistration.id);
       }
@@ -505,7 +519,32 @@ export default function VendorProfile() {
                   placeholderTextColor="#c084fc"
                 />
               </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Pin Your Location on Map</Text>
+                <Text style={{ color: '#c084fc', fontSize: 12, marginBottom: 10 }}>
+                  Search your business name or address to set your exact location
+                </Text>
 
+                {editData.latitude && editData.longitude ? (
+                  <View style={pickerStyles.currentLocationPreview}>
+                    <MapPin color="#22c55e" size={16} />
+                    <Text style={pickerStyles.currentLocationText}>
+                      Location set: {editData.latitude.toFixed(4)}, {editData.longitude.toFixed(4)}
+                    </Text>
+                    <TouchableOpacity onPress={() => setShowLocationPicker(true)}>
+                      <Text style={pickerStyles.changeLocationText}>Change</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={pickerStyles.setLocationButton}
+                    onPress={() => setShowLocationPicker(true)}
+                  >
+                    <MapPin color="#f59e0b" size={20} />
+                    <Text style={pickerStyles.setLocationText}>Set Location on Map</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Phone</Text>
                 <TextInput
@@ -569,10 +608,52 @@ export default function VendorProfile() {
           </View>
         </View>
       </Modal>
+      <Modal visible={showLocationPicker} animationType="slide">
+        <VendorLocationPicker
+          initialLat={editData.latitude}
+          initialLon={editData.longitude}
+          initialName={editData.business_name}
+          onConfirm={(lat, lon, city, displayName) => {
+            setEditData({
+              ...editData,
+              latitude: lat,
+              longitude: lon,
+              city: city,
+              location: displayName,
+            });
+            setShowLocationPicker(false);
+          }}
+          onCancel={() => setShowLocationPicker(false)}
+        />
+      </Modal>
     </LinearGradient>
   );
 }
-
+const pickerStyles = StyleSheet.create({
+  currentLocationPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.3)',
+    borderRadius: 12,
+    padding: 12,
+  },
+  currentLocationText: { color: '#22c55e', fontSize: 13, flex: 1 },
+  changeLocationText: { color: '#c084fc', fontSize: 13, fontWeight: '600' },
+  setLocationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderRadius: 12,
+    padding: 14,
+  },
+  setLocationText: { color: '#f59e0b', fontSize: 14, fontWeight: '600' },
+});
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loadingContainer: { flex: 1, backgroundColor: '#1e1b4b', justifyContent: 'center', alignItems: 'center' },

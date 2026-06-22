@@ -30,7 +30,9 @@ import { Vendor } from '../../../types/index';
 import { useAuthStore } from '../../../store/authStore';
 import { fetchVendorById, toggleFavorite, isFavorite } from '../../../lib/api';
 import QRScanner from '../../../components/QRScanner';
+import VendorMapPreview from '../../../components/VendorMapPreview';
 import CustomAlert, { useCustomAlert } from '../../../components/CustomAlert';
+
 
 export default function VendorDetailScreen() {
   const router = useRouter();
@@ -250,6 +252,16 @@ export default function VendorDetailScreen() {
             <Text style={styles.termsText}>{vendor.terms}</Text>
           </View>
         )}
+
+        {/* Map */}
+        <View style={{ marginHorizontal: 16, marginBottom: 16 }}>
+          <VendorMapPreview
+            latitude={vendor.latitude}
+            longitude={vendor.longitude}
+            vendorName={vendor.name}
+            location={vendor.location}
+          />
+        </View>
 
         <View style={{ height: 100 }} />
       </ScrollView>

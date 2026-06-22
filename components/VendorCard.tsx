@@ -1,4 +1,4 @@
-// components/VendorCard.tsx - FIXED IMAGE LOADING
+// components/VendorCard.tsx
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { MapPin, Star } from 'lucide-react-native';
@@ -7,28 +7,23 @@ import { Vendor } from '../types/index';
 interface VendorCardProps {
   vendor: Vendor;
   onPress: () => void;
+  distanceKm?: number;
 }
 
-export default function VendorCard({ vendor, onPress }: VendorCardProps) {
+export default function VendorCard({ vendor, onPress, distanceKm }: VendorCardProps) {
   const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
-  
-  // Check if logo_url is a valid URL
-  const isImageUrl = vendor.logo_url && 
+
+  const isImageUrl = vendor.logo_url &&
     (vendor.logo_url.startsWith('http://') || vendor.logo_url.startsWith('https://'));
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
-      {/* Logo */}
       <View style={styles.logoContainer}>
         {isImageUrl && !imageError ? (
           <>
             {imageLoading && (
-              <ActivityIndicator 
-                color="#c084fc" 
-                size="small" 
-                style={styles.imageLoader}
-              />
+              <ActivityIndicator color="#c084fc" size="small" style={styles.imageLoader} />
             )}
             <Image
               source={{ uri: vendor.logo_url }}
@@ -36,8 +31,7 @@ export default function VendorCard({ vendor, onPress }: VendorCardProps) {
               resizeMode="cover"
               onLoadStart={() => setImageLoading(true)}
               onLoadEnd={() => setImageLoading(false)}
-              onError={(e) => {
-                console.log('Image load error:', vendor.logo_url);
+              onError={() => {
                 setImageError(true);
                 setImageLoading(false);
               }}
@@ -48,7 +42,6 @@ export default function VendorCard({ vendor, onPress }: VendorCardProps) {
         )}
       </View>
 
-      {/* Content */}
       <View style={styles.content}>
         <Text style={styles.name} numberOfLines={1}>
           {vendor.name}
@@ -58,7 +51,6 @@ export default function VendorCard({ vendor, onPress }: VendorCardProps) {
           <Text style={styles.categoryText}>{vendor.category}</Text>
         </View>
 
-        {/* Location */}
         <View style={styles.locationRow}>
           <MapPin color="#c084fc" size={14} />
           <Text style={styles.locationText} numberOfLines={1}>
@@ -66,7 +58,6 @@ export default function VendorCard({ vendor, onPress }: VendorCardProps) {
           </Text>
         </View>
 
-        {/* Rating */}
         <View style={styles.ratingRow}>
           <Star color="#fbbf24" size={14} fill="#fbbf24" />
           <Text style={styles.ratingText}>{vendor.rating}</Text>
@@ -74,10 +65,16 @@ export default function VendorCard({ vendor, onPress }: VendorCardProps) {
         </View>
       </View>
 
-      {/* Discount Badge */}
       <View style={styles.discountBadge}>
         <Text style={styles.discountText}>{vendor.discount_text}</Text>
       </View>
+
+      {distanceKm !== undefined && (
+        <View style={styles.distanceBadge}>
+          <MapPin color="white" size={11} />
+          <Text style={styles.distanceText}>{distanceKm.toFixed(1)} km</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -101,25 +98,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     overflow: 'hidden',
   },
-  imageLoader: {
-    position: 'absolute',
-    zIndex: 1,
-  },
-  logoImage: {
-    width: '100%',
-    height: '100%',
-  },
-  logo: {
-    fontSize: 40,
-  },
-  content: {
-    gap: 6,
-  },
-  name: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  imageLoader: { position: 'absolute', zIndex: 1 },
+  logoImage: { width: '100%', height: '100%' },
+  logo: { fontSize: 40 },
+  content: { gap: 6 },
+  name: { color: 'white', fontSize: 16, fontWeight: 'bold' },
   categoryBadge: {
     backgroundColor: 'rgba(192, 132, 252, 0.2)',
     alignSelf: 'flex-start',
@@ -127,35 +110,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
   },
-  categoryText: {
-    color: '#c084fc',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  locationText: {
-    color: '#c084fc',
-    fontSize: 12,
-    flex: 1,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  ratingText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  reviewCount: {
-    color: '#c084fc',
-    fontSize: 12,
-  },
+  categoryText: { color: '#c084fc', fontSize: 10, fontWeight: '600' },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  locationText: { color: '#c084fc', fontSize: 12, flex: 1 },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  ratingText: { color: 'white', fontSize: 14, fontWeight: '600' },
+  reviewCount: { color: '#c084fc', fontSize: 12 },
   discountBadge: {
     position: 'absolute',
     top: 8,
@@ -165,9 +125,18 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
   },
-  discountText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
+  discountText: { color: 'white', fontSize: 12, fontWeight: 'bold' },
+  distanceBadge: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
+  distanceText: { color: 'white', fontSize: 10, fontWeight: '600' },
 });

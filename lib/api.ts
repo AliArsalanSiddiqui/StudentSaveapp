@@ -3,15 +3,22 @@ import { Vendor, UserSubscription, Transaction, SubscriptionPlan } from '../type
 
 // ==================== VENDORS ====================
 
-export const fetchVendors = async (category?: string): Promise<Vendor[]> => {
+export const fetchVendors = async (options?: {
+  category?: string;
+  city?: string;
+}): Promise<Vendor[]> => {
   let query = supabase
     .from('vendors')
     .select('*')
     .eq('active', true)
     .order('rating', { ascending: false });
 
-  if (category && category !== 'All') {
-    query = query.eq('category', category);
+  if (options?.category && options.category !== 'All') {
+    query = query.eq('category', options.category);
+  }
+
+  if (options?.city) {
+    query = query.eq('city', options.city);
   }
 
   const { data, error } = await query;
