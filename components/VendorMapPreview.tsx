@@ -21,7 +21,7 @@ export default function VendorMapPreview({
     return (
       <View style={styles.placeholderCard}>
         <MapPin color="#c084fc" size={32} />
-        <Text style={styles.placeholderText}>Location not set by vendor</Text>
+        <Text style={styles.placeholderText}>Location not set by vendor </Text>
       </View>
     );
   }

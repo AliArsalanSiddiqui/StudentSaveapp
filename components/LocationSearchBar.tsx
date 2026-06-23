@@ -8,7 +8,6 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
-  Modal,
 } from 'react-native';
 import { Search, MapPin, Navigation, X } from 'lucide-react-native';
 import * as Location from 'expo-location';
@@ -33,8 +32,9 @@ export default function LocationSearchBar({
   const [loading, setLoading] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
   const requestIdRef = useRef(0);
+  const inputRef = useRef<TextInput>(null);
 
-  const handleChangeText = async (text: string) => {
+  const handleChangeText = (text: string) => {
     setQuery(text);
 
     if (!text || text.trim().length < 2) {
@@ -47,13 +47,12 @@ export default function LocationSearchBar({
     setLoading(true);
     setShowDropdown(true);
 
-    const data = await searchPlaces(text, cityBias);
-
-    // Ignore stale responses
-    if (currentRequestId === requestIdRef.current) {
-      setResults(data);
-      setLoading(false);
-    }
+    searchPlaces(text, cityBias).then((data) => {
+      if (currentRequestId === requestIdRef.current) {
+        setResults(data);
+        setLoading(false);
+      }
+    });
   };
 
   const handleSelectResult = (result: NominatimResult) => {
@@ -67,6 +66,7 @@ export default function LocationSearchBar({
 
   const handleUseCurrentLocation = async () => {
     setGpsLoading(true);
+    setShowDropdown(false);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
@@ -81,7 +81,6 @@ export default function LocationSearchBar({
       const name = cityName || 'Current Location';
 
       setQuery(name);
-      setShowDropdown(false);
       onLocationSelect(latitude, longitude, name);
     } catch (error) {
       console.error('Error getting current location:', error);
@@ -94,6 +93,7 @@ export default function LocationSearchBar({
     setQuery('');
     setResults([]);
     setShowDropdown(false);
+    inputRef.current?.focus();
   };
 
   return (
@@ -101,6 +101,7 @@ export default function LocationSearchBar({
       <View style={styles.inputContainer}>
         <Search color="#c084fc" size={18} style={styles.searchIcon} />
         <TextInput
+          ref={inputRef}
           style={styles.input}
           placeholder={placeholder}
           placeholderTextColor="#c084fc"
@@ -109,6 +110,12 @@ export default function LocationSearchBar({
           onFocus={() => {
             if (results.length > 0) setShowDropdown(true);
           }}
+          onBlur={() => {
+            // Small delay so taps on dropdown items still register
+            setTimeout(() => setShowDropdown(false), 150);
+          }}
+          autoCorrect={false}
+          autoComplete="off"
         />
         {loading && <ActivityIndicator size="small" color="#c084fc" />}
         {!loading && query.length > 0 && (
@@ -119,62 +126,49 @@ export default function LocationSearchBar({
       </View>
 
       {showDropdown && (
-        <Modal
-          visible={showDropdown}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowDropdown(false)}
-        >
+        <View style={styles.dropdownContainer}>
           <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setShowDropdown(false)}
+            style={styles.currentLocationItem}
+            onPress={handleUseCurrentLocation}
+            disabled={gpsLoading}
           >
-            <View style={styles.dropdownContainer}>
-              <TouchableOpacity
-                style={styles.currentLocationItem}
-                onPress={handleUseCurrentLocation}
-                disabled={gpsLoading}
-              >
-                {gpsLoading ? (
-                  <ActivityIndicator size="small" color="#c084fc" />
-                ) : (
-                  <Navigation color="#c084fc" size={18} />
-                )}
-                <Text style={styles.currentLocationText}>Use Current Location</Text>
-              </TouchableOpacity>
-
-              <FlatList
-                data={results}
-                keyExtractor={(item) => item.place_id.toString()}
-                keyboardShouldPersistTaps="handled"
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.resultItem}
-                    onPress={() => handleSelectResult(item)}
-                  >
-                    <MapPin color="#c084fc" size={16} style={{ marginTop: 2 }} />
-                    <Text style={styles.resultText} numberOfLines={2}>
-                      {item.display_name}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                ListEmptyComponent={
-                  !loading ? (
-                    <Text style={styles.emptyText}>No results found</Text>
-                  ) : null
-                }
-              />
-            </View>
+            {gpsLoading ? (
+              <ActivityIndicator size="small" color="#c084fc" />
+            ) : (
+              <Navigation color="#c084fc" size={18} />
+            )}
+            <Text style={styles.currentLocationText}>Use Current Location</Text>
           </TouchableOpacity>
-        </Modal>
+
+          <FlatList
+            data={results}
+            keyExtractor={(item) => item.place_id.toString()}
+            keyboardShouldPersistTaps="always"
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.resultItem}
+                onPress={() => handleSelectResult(item)}
+              >
+                <MapPin color="#c084fc" size={16} style={{ marginTop: 2 }} />
+                <Text style={styles.resultText} numberOfLines={2}>
+                  {item.display_name}
+                </Text>
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              !loading ? (
+                <Text style={styles.emptyText}>No results found</Text>
+              ) : null
+            }
+          />
+        </View>
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: { position: 'relative' },
+  wrapper: { position: 'relative', zIndex: 999 },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -192,20 +186,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   clearButton: { padding: 4 },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-start',
-    paddingTop: 160,
-    paddingHorizontal: 16,
-  },
   dropdownContainer: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: 4,
     backgroundColor: '#1e1b4b',
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
     maxHeight: 360,
     overflow: 'hidden',
+    zIndex: 1000,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   currentLocationItem: {
     flexDirection: 'row',

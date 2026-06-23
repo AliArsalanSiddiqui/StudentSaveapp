@@ -203,7 +203,7 @@ export default function VendorDetailScreen() {
             <View style={styles.stat}>
               <Star color="#fbbf24" size={20} fill="#fbbf24" />
               <Text style={styles.statText}>{vendor.rating.toFixed(1)}</Text>
-              <Text style={styles.statLabel}>({vendor.total_reviews} reviews)</Text>
+              <Text style={styles.statLabel}>({vendor.total_reviews} reviews) </Text>
             </View>
           </View>
 
