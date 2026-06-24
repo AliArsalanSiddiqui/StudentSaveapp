@@ -1,6 +1,10 @@
 {
   "name": "studentsave",
   "version": "1.0.0",
+  "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
