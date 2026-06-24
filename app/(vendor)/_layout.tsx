@@ -1,8 +1,10 @@
-// app/(vendor)/_layout.tsx - REMOVED VERIFICATION GUARD
-import { Tabs, useRouter } from 'expo-router';
+// app/(vendor)/_layout.tsx
+import { Tabs } from 'expo-router';
 import { Home, QrCode, BarChart3, User } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function VendorLayout() {
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
@@ -11,8 +13,8 @@ export default function VendorLayout() {
           backgroundColor: '#1e1b4b',
           borderTopColor: 'rgba(255, 255, 255, 0.1)',
           borderTopWidth: 1,
-          height: 70,
-          paddingBottom: 10,
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom,
           paddingTop: 10,
         },
         tabBarActiveTintColor: '#f59e0b',
@@ -37,9 +39,7 @@ export default function VendorLayout() {
         name="analytics"
         options={{
           title: 'Analytics',
-          tabBarIcon: ({ color, size }) => (
-            <BarChart3 color={color} size={size} />
-          ),
+          tabBarIcon: ({ color, size }) => <BarChart3 color={color} size={size} />,
         }}
       />
       <Tabs.Screen

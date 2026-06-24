@@ -1,9 +1,10 @@
 // app/(student)/_layout.tsx
 import { Tabs } from 'expo-router';
-import { Home, QrCode, Heart, History, User, CreditCard } from 'lucide-react-native';
-import { Platform } from 'react-native';
+import { Home, QrCode, History, User, CreditCard } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function StudentLayout() {
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
@@ -12,10 +13,8 @@ export default function StudentLayout() {
           backgroundColor: '#1e1b4b',
           borderTopColor: 'rgba(255, 255, 255, 0.1)',
           borderTopWidth: 1,
-          // SDK 54 + Android edge-to-edge fix:
-          // Android 15+ enables edge-to-edge by default, nav bar overlaps tabs
-          height: Platform.OS === 'android' ? 90 : 70,
-          paddingBottom: Platform.OS === 'android' ? 28 : 10,
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom,
           paddingTop: 10,
         },
         tabBarActiveTintColor: '#c084fc',
