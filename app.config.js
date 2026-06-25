@@ -39,6 +39,13 @@ export default {
         backgroundColor: "#1e1b4b",
         foregroundImage: "./assets/icon.png"
       },
+      // ✅ Add this notification block
+      notification: {
+        icon: "./assets/notification-icon.png",
+        color: "#c084fc",
+        androidMode: "default",
+        androidCollapsedTitle: "StudentSave"
+      },
       config: {
         googleMaps: {
           apiKey: process.env.GOOGLE_MAPS_API_KEY
@@ -77,7 +84,8 @@ export default {
       [
         "expo-notifications",
         {
-          icon: "./assets/icon.png",
+          // ✅ Point to the dedicated monochrome icon, NOT the main app icon
+          icon: "./assets/notification-icon.png",
           color: "#c084fc"
         }
       ]

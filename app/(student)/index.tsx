@@ -11,6 +11,7 @@ import {
   Image,
   ActivityIndicator,
   Animated,
+  AppState,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
@@ -24,6 +25,7 @@ import LocationSearchBar from '@/components/LocationSearchBar';
 import { reverseGeocode, matchSupportedCity, SupportedCity } from '@/lib/nominatim';
 import { fetchUnreadNotificationCount } from '@/lib/api';
 import { registerForPushNotificationsAsync } from '@/lib/notifications';
+import { useNotificationStore } from '@/store/notificationStore';
 
 const { width } = Dimensions.get('window');
 const cardWidth = (width - 48) / 2;
@@ -58,7 +60,7 @@ export default function StudentHome() {
   const [loading, setLoading] = useState(true);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [favoritesCount, setFavoritesCount] = useState(0);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { unreadCount, setUnreadCount } = useNotificationStore();
 
   // ---- Location / city state ----
   const [selectedCity, setSelectedCity] = useState<SupportedCity>('Karachi');
@@ -114,10 +116,22 @@ export default function StudentHome() {
         )
         .subscribe();
 
+      // Safety net: React Native suspends the Realtime websocket while the
+      // app is backgrounded (e.g. while the camera/scanner screen is open),
+      // and it doesn't always reconnect cleanly. Re-sync the unread count
+      // straight from the DB whenever the app comes back to the foreground,
+      // so the badge stays correct even if a postgres_changes event got lost.
+      const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+        if (nextState === 'active') {
+          fetchUnreadNotificationCount(user.id).then(setUnreadCount);
+        }
+      });
+
       return () => {
         supabase.removeChannel(channel);
         supabase.removeChannel(favoritesChannel);
         supabase.removeChannel(notifChannel);
+        appStateSubscription.remove();
       };
     }
   }, [user?.id]);

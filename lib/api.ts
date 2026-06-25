@@ -405,10 +405,10 @@ export const createNotification = async (
  */
 export const getVendorOwnerId = async (vendorId: string): Promise<string | null> => {
   const { data, error } = await supabase
-    .from('vendor_registrations')
+    .from('vendors')
     .select('owner_id')
     .eq('id', vendorId)
-    .single();
+    .maybeSingle();
 
   if (error || !data) {
     console.error('Error fetching vendor owner:', error);

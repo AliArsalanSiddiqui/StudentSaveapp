@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import CustomAlert from '@/components/CustomAlert';
 import { AlertConfig } from '@/types';
 import { createNotification, getVendorOwnerId } from '@/lib/api';
+import { useNotificationStore } from '@/store/notificationStore';
 
 interface QRScannerProps {
   onClose: () => void;
@@ -247,6 +248,10 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
           `You saved with ${vendor.discount_text} at ${vendor.name}.`,
           'redemption'
         );
+        // Update the bell badge immediately — don't wait on the Realtime
+        // channel, which can go stale in the background and miss the
+        // INSERT event (e.g. while the camera/scanner screen is active).
+        useNotificationStore.getState().increment();
       }
       getVendorOwnerId(vendor.id).then((ownerId) => {
         if (ownerId) {

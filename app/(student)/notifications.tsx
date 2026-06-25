@@ -8,14 +8,18 @@ import {
   StyleSheet,
   RefreshControl,
   ActivityIndicator,
+  AppState,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { supabase } from '@/lib/supabase';
 import { ChevronLeft, Bell, CheckCheck, Tag, QrCode, ShieldCheck, Info } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuthStore } from '@/store/authStore';
+import { useNotificationStore } from '@/store/notificationStore';
 import {
   fetchUserNotifications,
+  fetchUnreadNotificationCount,
   markNotificationAsRead,
   markAllNotificationsAsRead,
 } from '@/lib/api';
@@ -41,6 +45,7 @@ export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { setUnreadCount } = useNotificationStore();
 
   const loadNotifications = useCallback(async () => {
     if (!user?.id) return;
@@ -49,33 +54,65 @@ export default function NotificationsScreen() {
   }, [user?.id]);
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      await loadNotifications();
-      setLoading(false);
-    })();
+  (async () => {
+    setLoading(true);
+    await loadNotifications();
+    setLoading(false);
+  })();
+
+  if (!user?.id) return;
+
+  // Realtime: re-fetch whenever the notifications table changes for this user
+  const channel = supabase
+    .channel(`notifications-page-${user.id}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${user.id}`,
+      },
+      () => loadNotifications()
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [loadNotifications, user?.id]);
+
+  // Safety net: same Realtime-can-go-stale issue as the home screen. If the
+  // websocket missed an INSERT while backgrounded, re-fetch the list as
+  // soon as the app is foregrounded again.
+  useEffect(() => {
+    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        loadNotifications();
+      }
+    });
+    return () => appStateSubscription.remove();
   }, [loadNotifications]);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadNotifications();
-    setRefreshing(false);
-  };
-
   const handlePress = async (item: Notification) => {
-    if (!item.read) {
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === item.id ? { ...n, read: true } : n))
-      );
-      await markNotificationAsRead(item.id);
+  if (!item.read) {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === item.id ? { ...n, read: true } : n))
+    );
+    await markNotificationAsRead(item.id);
+    // Recount from DB to stay in sync
+    if (user?.id) {
+      fetchUnreadNotificationCount(user.id).then(setUnreadCount);
     }
-  };
+  }
+};
 
   const handleMarkAllRead = async () => {
-    if (!user?.id) return;
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    await markAllNotificationsAsRead(user.id);
-  };
+  if (!user?.id) return;
+  setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  await markAllNotificationsAsRead(user.id);
+  setUnreadCount(0); // instant clear
+};
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -113,7 +150,7 @@ export default function NotificationsScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#c084fc" />
+            <RefreshControl refreshing={refreshing} tintColor="#c084fc" />
           }
           renderItem={({ item }) => {
             const Icon = iconForType(item.type);
