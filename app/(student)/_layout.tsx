@@ -64,6 +64,7 @@ export default function StudentLayout() {
       <Tabs.Screen name="easypaisa-payment" options={{ href: null }} />
       <Tabs.Screen name="manual-payment" options={{ href: null }} />
       <Tabs.Screen name="favourites" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
     </Tabs>
   );
 }

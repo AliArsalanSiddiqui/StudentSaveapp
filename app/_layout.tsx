@@ -11,6 +11,7 @@ import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { ErrorBoundary } from 'react-error-boundary';
 import SplashScreen from '@/components/SplashScreen';
 import * as ExpoSplashScreen from 'expo-splash-screen';
+import { addNotificationResponseListener } from '@/lib/notifications';
 
 ExpoSplashScreen.preventAutoHideAsync();
 
@@ -37,6 +38,19 @@ export default function RootLayout() {
   useEffect(() => {
     ExpoSplashScreen.hideAsync();
     initializeAuth();
+
+    // When a push notification is tapped (app foreground, background, or killed),
+    // send the user to their notifications screen.
+    const subscription = addNotificationResponseListener(() => {
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser?.role === 'vendor') {
+        router.push('/(vendor)' as any);
+      } else {
+        router.push('/(student)/notifications');
+      }
+    });
+
+    return () => subscription.remove();
   }, []);
 
   const initializeAuth = async () => {

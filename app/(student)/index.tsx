@@ -22,6 +22,8 @@ import { useAuthStore } from '../../store/authStore';
 import VendorCard from '@/components/VendorCard';
 import LocationSearchBar from '@/components/LocationSearchBar';
 import { reverseGeocode, matchSupportedCity, SupportedCity } from '@/lib/nominatim';
+import { fetchUnreadNotificationCount } from '@/lib/api';
+import { registerForPushNotificationsAsync } from '@/lib/notifications';
 
 const { width } = Dimensions.get('window');
 const cardWidth = (width - 48) / 2;
@@ -56,6 +58,7 @@ export default function StudentHome() {
   const [loading, setLoading] = useState(true);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [favoritesCount, setFavoritesCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // ---- Location / city state ----
   const [selectedCity, setSelectedCity] = useState<SupportedCity>('Karachi');
@@ -81,6 +84,18 @@ export default function StudentHome() {
     detectCity();
 
     if (user?.id) {
+      fetchUnreadNotificationCount(user.id).then(setUnreadCount);
+      registerForPushNotificationsAsync(user.id);
+
+      const notifChannel = supabase
+        .channel(`student-notifications-${user.id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+          () => fetchUnreadNotificationCount(user.id).then(setUnreadCount)
+        )
+        .subscribe();
+
       const channel = supabase
         .channel(`student-home-subscription-${user.id}`)
         .on(
@@ -102,6 +117,7 @@ export default function StudentHome() {
       return () => {
         supabase.removeChannel(channel);
         supabase.removeChannel(favoritesChannel);
+        supabase.removeChannel(notifChannel);
       };
     }
   }, [user?.id]);
@@ -358,8 +374,18 @@ export default function StudentHome() {
             <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/(student)/favourites')}>
               <Heart color="white" size={24} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.iconButton}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => router.push('/(student)/notifications')}
+            >
               <Bell color="white" size={24} />
+              {unreadCount > 0 && (
+                <View style={styles.notifBadge}>
+                  <Text style={styles.notifBadgeText}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/(student)/profile')}>
               <User color="white" size={24} />
@@ -641,6 +667,21 @@ const styles = StyleSheet.create({
   brandName: { color: 'white', fontSize: 20, fontWeight: 'bold' },
   headerIcons: { flexDirection: 'row', gap: 12 },
   iconButton: { padding: 4, position: 'relative' },
+  notifBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#ef4444',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#1e1b4b',
+  },
+  notifBadgeText: { color: 'white', fontSize: 10, fontWeight: '700' },
 
   cityPillsContainer: { flexGrow: 0 },
   cityPillsContent: { gap: 8 },

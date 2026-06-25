@@ -72,7 +72,14 @@ export default {
         "expo-image-picker",
         { photosPermission: "Allow StudentSave to access your photos to upload student ID" }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-notifications",
+        {
+          icon: "./assets/icon.png",
+          color: "#c084fc"
+        }
+      ]
     ],
 
     experiments: {

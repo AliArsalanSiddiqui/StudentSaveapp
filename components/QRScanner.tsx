@@ -8,6 +8,7 @@ import { useAuthStore } from '../store/authStore';
 import { useRouter } from 'expo-router';
 import CustomAlert from '@/components/CustomAlert';
 import { AlertConfig } from '@/types';
+import { createNotification, getVendorOwnerId } from '@/lib/api';
 
 interface QRScannerProps {
   onClose: () => void;
@@ -235,7 +236,29 @@ export default function QRScanner({ onClose, onSuccess, restrictToVendorId }: QR
       const newTransactionId = newTransaction.id;
       const newTransactionTime = newTransaction.redeemed_at;
       const verificationCode = newTransactionId.substring(0, 8).toUpperCase();
-      
+
+      // Fire-and-forget notifications: one for the student (confirmation),
+      // one for the vendor owner (heads-up about the new scan). Each insert
+      // also triggers a push notification via the send-push edge function.
+      if (user?.id) {
+        createNotification(
+          user.id,
+          'Discount Redeemed! 🎉',
+          `You saved with ${vendor.discount_text} at ${vendor.name}.`,
+          'redemption'
+        );
+      }
+      getVendorOwnerId(vendor.id).then((ownerId) => {
+        if (ownerId) {
+          createNotification(
+            ownerId,
+            'New Scan! 🎉',
+            `A student just redeemed ${vendor.discount_text}. Verification code: ${verificationCode}`,
+            'scan'
+          );
+        }
+      });
+
       console.log('✅ NEW Transaction created:', {
         transactionId: newTransactionId,
         verificationCode: verificationCode,

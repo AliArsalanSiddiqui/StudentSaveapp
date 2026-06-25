@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { User } from '../types/index';
+import { clearPushToken } from '../lib/notifications';
 
 interface AuthState {
   user: User | null;
@@ -11,7 +12,7 @@ interface AuthState {
   setSession: (session: any) => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   session: null,
 
@@ -26,6 +27,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   signOut: async () => {
+    const currentUserId = get().user?.id;
+    if (currentUserId) {
+      await clearPushToken(currentUserId);
+    }
     await supabase.auth.signOut();
     set({ user: null, session: null });
   },

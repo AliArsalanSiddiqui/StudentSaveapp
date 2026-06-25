@@ -15,6 +15,7 @@ import { Store, TrendingUp, Users, Award, Bell, CheckCircle, Clock, Shield } fro
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { format } from 'date-fns';
+import { registerForPushNotificationsAsync } from '@/lib/notifications';
 
 interface RecentScan {
   id: string;
@@ -45,6 +46,7 @@ export default function VendorHome() {
   useEffect(() => {
     if (user?.id) {
       fetchVendorData();
+      registerForPushNotificationsAsync(user.id);
     }
   }, [user]);
 
