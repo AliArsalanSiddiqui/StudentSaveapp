@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "25792217320",
+    "project_id": "studentsave-93164",
+    "storage_bucket": "studentsave-93164.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:25792217320:android:04c7631cd8b1156dacc95d",
+        "android_client_info": {
+          "package_name": "com.studentsave.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_Zm0YiVTpUNxeeh22W2FQGbC0Hkhhz_U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
