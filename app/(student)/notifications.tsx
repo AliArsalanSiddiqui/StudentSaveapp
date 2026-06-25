@@ -11,6 +11,7 @@ import {
   AppState,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '@/lib/supabase';
 import { ChevronLeft, Bell, CheckCheck, Tag, QrCode, ShieldCheck, Info } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -52,6 +53,21 @@ export default function NotificationsScreen() {
     const data = await fetchUserNotifications(user.id);
     setNotifications(data);
   }, [user?.id]);
+
+  // Re-fetch every time this screen comes into focus. Without this, since
+  // React Navigation keeps screens mounted in the background instead of
+  // unmounting them, navigating back to an already-visited Notifications
+  // screen would just show whatever was loaded the FIRST time it was
+  // opened — the mount-only effect below never runs again. This is what
+  // was forcing a full app restart to see new notifications.
+  useFocusEffect(
+    useCallback(() => {
+      loadNotifications();
+      if (user?.id) {
+        fetchUnreadNotificationCount(user.id).then(setUnreadCount);
+      }
+    }, [loadNotifications, user?.id])
+  );
 
   useEffect(() => {
   (async () => {
