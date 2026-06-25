@@ -55,7 +55,7 @@ export default {
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION"
       ],
-      googleServicesFile: "./google-services.json"
+      googleServicesFile: process.env.GOOGLE_SERVICES_JSON
     },
 
     web: {

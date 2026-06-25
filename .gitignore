@@ -40,6 +40,7 @@ yarn-error.log*
 
 # Service account keys
 google-service-account.json
+google-services.json
 
 # Testing
 coverage/
